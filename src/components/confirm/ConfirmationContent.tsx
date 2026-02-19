@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@apollo/client/react';
-import { CheckCircle2, Smartphone, Upload, Loader2 } from 'lucide-react';
+import { CheckCircle2, Smartphone, Loader2 } from 'lucide-react';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -119,27 +119,6 @@ export function ConfirmationContent({ jobId, slug }: ConfirmationContentProps) {
       {/* Cert Verification */}
       <CertVerification />
 
-      {/* Profile Enhancement: Upload CV */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Upload className="size-4" />
-            Upload your CV
-          </CardTitle>
-          <CardDescription>
-            Employers are more likely to respond when they can see your full work history.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/*
-            TODO: Wire to uploadResume mutation and file input when ready.
-            UPLOAD_RESUME mutation is defined in mutations.ts.
-          */}
-          <Button variant="outline" disabled className="w-full">
-            Upload CV <span className="ml-2 text-xs text-muted-foreground">(coming soon)</span>
-          </Button>
-        </CardContent>
-      </Card>
 
       {/* App Download CTA */}
       <Card className="bg-primary text-primary-foreground border-primary">
