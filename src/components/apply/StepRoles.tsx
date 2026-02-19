@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
-import { CANDIDATE_ROLES_QUERY } from '@/lib/graphql/queries';
+import { CANDIDATE_ROLES_QUERY, CURRENT_USER_QUERY } from '@/lib/graphql/queries';
 import { APPLY_TO_JOB, UPDATE_ROLE_PREFERENCES } from '@/lib/graphql/mutations';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { Button } from '@/components/ui/button';
@@ -35,18 +35,34 @@ interface PaginatedRolesResult {
   };
 }
 
+interface CurrentUserResult {
+  currentUser: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    primaryPhone?: string | null;
+    candidateProfile?: {
+      resumeUrl?: string | null;
+      roles?: Array<{ id: string; name: string }> | null;
+    } | null;
+  };
+}
+
 /**
  * Step 2 of the apply wizard: role selection.
  *
  * - Fetches all candidate roles (requires auth JWT)
  * - Pre-selects the job's primary role from wizard state
+ * - Also pre-fills roles from existing candidateProfile if pool candidate
  * - Minimum 1 role required (pre-selection satisfies this)
  * - On submit: calls applyToJob then updateCandidateRolePreferences
- * - Redirects to /confirm on success
+ * - If no resume on file: advances to 'resume' step (optional CV upload)
+ * - If resume exists: redirects directly to /confirm
  */
 export function StepRoles() {
   const router = useRouter();
-  const { jobId, jobSlug, selectedRoleIds, setRoles } = useApplyWizard();
+  const { jobId, jobSlug, selectedRoleIds, setRoles, setStep } = useApplyWizard();
   const [submitError, setSubmitError] = useState('');
 
   // Fetch all available roles (requires auth — JWT is set from StepAuth)
@@ -55,27 +71,38 @@ export function StepRoles() {
     { variables: { limit: 100 } }
   );
 
+  // Fetch current user to check for existing resume and pre-fill roles
+  const { data: currentUserData } = useQuery<CurrentUserResult>(CURRENT_USER_QUERY);
+
   const [applyToJob, { loading: applyLoading }] = useMutation(APPLY_TO_JOB);
   const [updateRolePreferences, { loading: rolesUpdateLoading }] = useMutation(UPDATE_ROLE_PREFERENCES);
 
   const isSubmitting = applyLoading || rolesUpdateLoading;
 
+  // Determine pre-selected role IDs: wizard state (job roles) OR existing profile roles
+  const profileRoleIds: string[] =
+    currentUserData?.currentUser?.candidateProfile?.roles?.map((r) => r.id) ?? [];
+
+  const initialRoleIds =
+    selectedRoleIds && selectedRoleIds.length > 0 ? selectedRoleIds : profileRoleIds;
+
   const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<RolesFormValues>({
     resolver: zodResolver(rolesSchema),
     defaultValues: {
-      // Use previously selected roles from wizard state, or empty
-      selectedRoleIds: selectedRoleIds ?? [],
+      selectedRoleIds: initialRoleIds,
     },
   });
 
   const watchedRoleIds = watch('selectedRoleIds');
 
-  // Pre-select roles from wizard state (set by job detail page or previous visit)
+  // Pre-select roles when data arrives (covers async data load order)
   useEffect(() => {
-    if (selectedRoleIds && selectedRoleIds.length > 0) {
-      setValue('selectedRoleIds', selectedRoleIds);
+    const ids = selectedRoleIds && selectedRoleIds.length > 0 ? selectedRoleIds : profileRoleIds;
+    if (ids.length > 0) {
+      setValue('selectedRoleIds', ids);
     }
-  }, [selectedRoleIds, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoleIds, currentUserData]);
 
   const toggleRole = (roleId: string) => {
     const current = watchedRoleIds;
@@ -112,11 +139,21 @@ export function StepRoles() {
       // 3. Save to wizard state
       setRoles(values.selectedRoleIds);
 
-      // 4. Redirect to confirmation page
-      const confirmUrl = jobSlug
-        ? `/confirm?jobId=${jobId}&slug=${jobSlug}`
-        : `/confirm?jobId=${jobId}`;
-      router.push(confirmUrl);
+      // 4. Check for existing resume — if none, show optional CV upload step
+      const hasResume = Boolean(
+        currentUserData?.currentUser?.candidateProfile?.resumeUrl
+      );
+
+      if (!hasResume) {
+        // Show optional CV upload step (candidate can skip)
+        setStep('resume');
+      } else {
+        // Already has a resume — skip to confirmation
+        const confirmUrl = jobSlug
+          ? `/confirm?jobId=${jobId}&slug=${jobSlug}`
+          : `/confirm?jobId=${jobId}`;
+        router.push(confirmUrl);
+      }
     } catch {
       setSubmitError(
         'Something went wrong submitting your application. Please try again.'

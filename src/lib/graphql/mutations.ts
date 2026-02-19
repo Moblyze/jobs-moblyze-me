@@ -49,15 +49,17 @@ export const UPDATE_ROLE_PREFERENCES = gql`
 `;
 
 /**
- * Upload a resume/CV file.
- * Returns a fileId for use in profile updates.
+ * Upload a resume/CV file for the current authenticated candidate.
+ * Schema: candidateUserUploadResume(resumeFile: Upload!): User! @auth
+ * Returns the updated User with candidateProfile.resumeUrl set.
  */
 export const UPLOAD_RESUME = gql`
-  mutation uploadResume($file: Upload!) {
-    uploadResume(file: $file) {
-      fileId
-      filename
-      url
+  mutation candidateUserUploadResume($resumeFile: Upload!) {
+    candidateUserUploadResume(resumeFile: $resumeFile) {
+      id
+      candidateProfile {
+        resumeUrl
+      }
     }
   }
 `;

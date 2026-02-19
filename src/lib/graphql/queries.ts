@@ -50,7 +50,7 @@ export const PUBLIC_JOBS_QUERY = gql`
 
 /**
  * Fetch the current authenticated user's profile.
- * Used after SMS auth to populate wizard state.
+ * Used after SMS auth to populate wizard state and check for resume.
  * Requires auth (JWT).
  */
 export const CURRENT_USER_QUERY = gql`
@@ -61,10 +61,12 @@ export const CURRENT_USER_QUERY = gql`
       lastName
       email
       primaryPhone
-      resumeFileId
-      roles {
-        id
-        name
+      candidateProfile {
+        resumeUrl
+        roles {
+          id
+          name
+        }
       }
     }
   }
