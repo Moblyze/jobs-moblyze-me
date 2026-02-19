@@ -1,10 +1,11 @@
-import { cache } from 'react';
+import { cache, Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getApolloClient } from '@/lib/apollo-client';
 import { PUBLIC_JOB_QUERY } from '@/lib/graphql/queries';
 import type { PublicJob } from '@/types';
 import { JobDetail } from '@/components/job/JobDetail';
+import { SimilarJobs } from '@/components/job/SimilarJobs';
 
 /**
  * Memoize job fetch so generateMetadata and the page component
@@ -105,6 +106,9 @@ export default async function JobPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <JobDetail job={job} />
+      <Suspense fallback={null}>
+        <SimilarJobs jobId={job.id} />
+      </Suspense>
     </>
   );
 }
