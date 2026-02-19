@@ -51,6 +51,7 @@ export const PUBLIC_JOBS_QUERY = gql`
 /**
  * Fetch the current authenticated user's profile.
  * Used after SMS auth to populate wizard state.
+ * Requires auth (JWT).
  */
 export const CURRENT_USER_QUERY = gql`
   query currentUser {
@@ -84,6 +85,24 @@ export const SIMILAR_JOBS_QUERY = gql`
       employmentTypeText
       payRateText
       createdAt
+    }
+  }
+`;
+
+/**
+ * Fetch paginated candidate roles for role selection.
+ * Requires auth (JWT) — called after phone OTP verification.
+ */
+export const CANDIDATE_ROLES_QUERY = gql`
+  query paginatedCandidateRoles($limit: Int, $search: String) {
+    paginatedCandidateRoles(limit: $limit, search: $search) {
+      roles {
+        id
+        name
+        category
+        subCategory
+      }
+      total
     }
   }
 `;
