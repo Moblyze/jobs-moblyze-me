@@ -3,15 +3,29 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getApolloClient } from '@/lib/apollo-client';
 import { PUBLIC_JOB_QUERY } from '@/lib/graphql/queries';
+import { DEMO_JOBS, isDemoSlug } from '@/lib/demo-jobs';
 import type { PublicJob } from '@/types';
 import { JobDetail } from '@/components/job/JobDetail';
 import { SimilarJobs } from '@/components/job/SimilarJobs';
+import { AttributionCapture } from '@/components/job/AttributionCapture';
+
+/**
+ * Pre-render all demo job slugs for static export.
+ */
+export function generateStaticParams() {
+  return Array.from(DEMO_JOBS.keys()).map((slug) => ({ slug }));
+}
 
 /**
  * Memoize job fetch so generateMetadata and the page component
  * share a single network request per render.
  */
 const getJob = cache(async (slug: string): Promise<PublicJob | null> => {
+  // Demo jobs resolve from static data — no API call needed
+  if (isDemoSlug(slug)) {
+    return DEMO_JOBS.get(slug) ?? null;
+  }
+
   const client = getApolloClient();
   const { data } = await client.query<{ publicJob: PublicJob | null }>({
     query: PUBLIC_JOB_QUERY,
@@ -105,10 +119,15 @@ export default async function JobPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <JobDetail job={job} />
       <Suspense fallback={null}>
-        <SimilarJobs jobId={job.id} />
+        <AttributionCapture />
       </Suspense>
+      <JobDetail job={job} demo={isDemoSlug(slug)} />
+      {!isDemoSlug(slug) && (
+        <Suspense fallback={null}>
+          <SimilarJobs jobId={job.id} />
+        </Suspense>
+      )}
     </>
   );
 }

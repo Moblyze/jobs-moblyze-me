@@ -57,6 +57,18 @@ export interface PublicJobCard {
 }
 
 /**
+ * Branch attribution data captured from URL params on outreach link click.
+ * Matches the BranchInfo GraphQL input type on the backend.
+ */
+export interface BranchInfo {
+  channel?: string | null;
+  campaign?: string | null;
+  campaignId?: string | null;
+  candidatePoolId?: string | null;
+  referringLink?: string | null;
+}
+
+/**
  * Auth state for the current user session
  */
 export interface AuthState {
@@ -101,4 +113,6 @@ export interface WizardState {
   whiteLabel: boolean;
   /** Client organization ID for white-label (Tier 0) jobs — used to fetch employer jobs on confirm page */
   employerId: string | null;
+  /** Branch attribution data from outreach link URL params */
+  branchInfo: BranchInfo | null;
 }

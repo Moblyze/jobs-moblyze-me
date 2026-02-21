@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { WizardStep, WizardState } from '@/types';
+import type { WizardStep, WizardState, BranchInfo } from '@/types';
 
 interface WizardActions {
   setStep: (step: WizardStep) => void;
@@ -17,6 +17,7 @@ interface WizardActions {
   setDemoReturning: (val: boolean) => void;
   setWhiteLabel: (val: boolean) => void;
   setEmployerId: (employerId: string | null) => void;
+  setBranchInfo: (info: BranchInfo) => void;
   reset: () => void;
 }
 
@@ -34,6 +35,7 @@ const initialState: WizardState = {
   demoReturning: false,
   whiteLabel: false,
   employerId: null,
+  branchInfo: null,
 };
 
 /**
@@ -73,6 +75,8 @@ export const useApplyWizard = create<WizardState & WizardActions>()(
       setWhiteLabel: (val) => set({ whiteLabel: val }),
 
       setEmployerId: (employerId) => set({ employerId }),
+
+      setBranchInfo: (info) => set({ branchInfo: info }),
 
       reset: () => set(initialState),
     }),
