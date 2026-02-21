@@ -12,6 +12,7 @@ export const PUBLIC_JOB_QUERY = gql`
       title
       employerName
       employerLogoUrl
+      clientOrganizationId
       location
       employmentTypeText
       payRateText
@@ -86,6 +87,7 @@ export const SIMILAR_JOBS_QUERY = gql`
       location
       employmentTypeText
       payRateText
+      startDateText
       createdAt
     }
   }

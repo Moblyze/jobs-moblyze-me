@@ -12,6 +12,11 @@ interface WizardActions {
   setRoles: (roleIds: string[]) => void;
   setResumeFileId: (fileId: string | null) => void;
   setName: (name: string) => void;
+  toggleCert: (certName: string) => void;
+  setDemo: (val: boolean) => void;
+  setDemoReturning: (val: boolean) => void;
+  setWhiteLabel: (val: boolean) => void;
+  setEmployerId: (employerId: string | null) => void;
   reset: () => void;
 }
 
@@ -24,6 +29,11 @@ const initialState: WizardState = {
   selectedRoleIds: [],
   resumeFileId: null,
   name: null,
+  claimedCertifications: [],
+  demo: false,
+  demoReturning: false,
+  whiteLabel: false,
+  employerId: null,
 };
 
 /**
@@ -48,6 +58,21 @@ export const useApplyWizard = create<WizardState & WizardActions>()(
       setResumeFileId: (resumeFileId) => set({ resumeFileId }),
 
       setName: (name) => set({ name }),
+
+      toggleCert: (certName) =>
+        set((state) => ({
+          claimedCertifications: state.claimedCertifications.includes(certName)
+            ? state.claimedCertifications.filter((c) => c !== certName)
+            : [...state.claimedCertifications, certName],
+        })),
+
+      setDemo: (val) => set({ demo: val }),
+
+      setDemoReturning: (val) => set({ demoReturning: val }),
+
+      setWhiteLabel: (val) => set({ whiteLabel: val }),
+
+      setEmployerId: (employerId) => set({ employerId }),
 
       reset: () => set(initialState),
     }),

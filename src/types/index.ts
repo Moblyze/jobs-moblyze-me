@@ -7,6 +7,14 @@ export interface CandidateRole {
 }
 
 /**
+ * A required or preferred certification for a job listing
+ */
+export interface RequiredCert {
+  name: string;
+  required: boolean; // true = required, false = preferred
+}
+
+/**
  * A public job listing as returned by the GraphQL API
  */
 export interface PublicJob {
@@ -15,6 +23,8 @@ export interface PublicJob {
   title: string;
   employerName: string;
   employerLogoUrl?: string | null;
+  /** Client organization ID — present for white-label (Tier 0) jobs */
+  clientOrganizationId?: string | null;
   location: string;
   employmentTypeText?: string | null;
   payRateText?: string | null;
@@ -23,6 +33,8 @@ export interface PublicJob {
   otherDescription?: string | null;
   roles: CandidateRole[];
   startDateText?: string | null;
+  requiredCertifications?: RequiredCert[];
+  whiteLabel?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,9 +47,12 @@ export interface PublicJobCard {
   slug: string;
   title: string;
   employerName: string;
+  employerLogoUrl?: string | null;
   location: string;
   employmentTypeText?: string | null;
   payRateText?: string | null;
+  startDateText?: string | null;
+  whiteLabel?: boolean;
   createdAt: string;
 }
 
@@ -76,4 +91,14 @@ export interface WizardState {
   selectedRoleIds: string[];
   resumeFileId: string | null;
   name: string | null;
+  /** Cert names the user claimed to have before authenticating */
+  claimedCertifications: string[];
+  /** When true, all API calls are simulated with fake delays */
+  demo: boolean;
+  /** When true in demo mode, simulate a returning user with pre-selected roles */
+  demoReturning: boolean;
+  /** When true, the apply flow is white-label (employer-branded) */
+  whiteLabel: boolean;
+  /** Client organization ID for white-label (Tier 0) jobs — used to fetch employer jobs on confirm page */
+  employerId: string | null;
 }

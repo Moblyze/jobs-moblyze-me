@@ -49,27 +49,36 @@ function getCurrentStepNumber(step: WizardStep): number {
  */
 export function ApplyWizard({ jobTitle }: ApplyWizardProps) {
   const router = useRouter();
-  const { step, setStep, jobSlug, jobId } = useApplyWizard();
+  const { step, setStep, jobSlug, jobId, demo, whiteLabel, employerId } = useApplyWizard();
 
   const progressValue = getProgressValue(step);
   const currentStepNum = getCurrentStepNumber(step);
   // Total steps: auth (1) + roles (2) + cv optional (3)
   const totalSteps = 3;
 
-  const backToJobHref = jobSlug ? `/jobs/${jobSlug}` : '/';
+  const backToJobHref = demo ? '/preview' : jobSlug ? `/jobs/${jobSlug}` : '/';
+
+  /** Whether a back button should be shown for the current step */
+  const canGoBack = step === 'verify' || ((step === 'roles' || step === 'resume') && demo);
 
   const handleBack = () => {
-    // From OTP verify phase, go back to phone entry phase
     if (step === 'verify') {
       setStep('phone');
+    } else if (step === 'roles') {
+      setStep('phone');
+    } else if (step === 'resume') {
+      setStep('roles');
     }
   };
 
   const handleCVComplete = () => {
     // After CV step (upload or skip), navigate to confirmation page
-    const confirmUrl = jobSlug
+    let confirmUrl = jobSlug
       ? `/confirm?jobId=${jobId}&slug=${jobSlug}`
       : `/confirm?jobId=${jobId}`;
+    if (demo) confirmUrl += '&demo=true';
+    if (whiteLabel) confirmUrl += '&whiteLabel=true';
+    if (employerId) confirmUrl += `&employerId=${encodeURIComponent(employerId)}`;
     router.push(confirmUrl);
   };
 
@@ -101,17 +110,17 @@ export function ApplyWizard({ jobTitle }: ApplyWizardProps) {
             Step {currentStepNum} of {totalSteps}
           </span>
         </div>
-        <Progress value={progressValue} className="h-1.5" />
+        <Progress value={progressValue} className="h-1" />
       </div>
 
-      {/* Back button when on OTP verify phase */}
-      {step === 'verify' && (
+      {/* Back button for navigable steps */}
+      {canGoBack && (
         <button
           onClick={handleBack}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="size-3" />
-          Change number
+          {step === 'verify' ? 'Change number' : 'Back'}
         </button>
       )}
 
