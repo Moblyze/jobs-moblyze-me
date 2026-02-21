@@ -1,33 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+import { AsYouType, parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+import type { CountryCode } from 'libphonenumber-js';
 import { useMutation } from '@apollo/client/react';
 import { VERIFY_SMS_START, VERIFY_SMS_CHECK } from '@/lib/graphql/mutations';
 import { storeToken } from '@/lib/auth';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown } from 'lucide-react';
+import {
+  PREFERRED_COUNTRIES,
+  OTHER_COUNTRIES,
+  findCountryByCode,
+  type CountryEntry,
+} from '@/lib/country-codes';
 
-// Phase A: Phone number + name validation
+// Phone schema — country-aware validation is done at submit time via superRefine
 const phoneSchema = z.object({
-  phone: z
-    .string()
-    .min(1, 'Phone number is required')
-    .refine(
-      (val) => {
-        try {
-          return isValidPhoneNumber(val, 'US');
-        } catch {
-          return false;
-        }
-      },
-      { message: 'Enter a valid US phone number' }
-    ),
+  phone: z.string().min(1, 'Phone number is required'),
   name: z.string().min(1, 'Your name is required').max(80),
 });
 
@@ -44,19 +39,52 @@ type CodeFormValues = z.infer<typeof codeSchema>;
 
 type AuthPhase = 'phone' | 'otp';
 
+/** Format a national phone number as-you-type for the given country */
+function formatNational(value: string, country: CountryCode): string {
+  // Strip to digits only before formatting
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  const formatter = new AsYouType(country);
+  return formatter.input(digits);
+}
+
+/** Get placeholder for a country (common format example) */
+function getPlaceholder(country: CountryCode): string {
+  const placeholders: Partial<Record<CountryCode, string>> = {
+    US: '(555) 000-0000',
+    CA: '(555) 000-0000',
+    GB: '7911 123456',
+    AU: '0412 345 678',
+    ES: '612 34 56 78',
+  };
+  return placeholders[country] ?? '000 000 0000';
+}
+
 /**
  * Step 1 of the apply wizard: phone OTP authentication + name collection.
  *
  * Phase A: user enters name + phone number -> sends OTP
  * Phase B: user enters 6-digit code -> verifies -> gets JWT token -> advances to roles step
+ *
+ * Features:
+ * - Country code selector with preferred countries (US, GB, AU, CA, ES)
+ * - As-you-type phone formatting via libphonenumber-js
+ * - Numeric keypad on mobile (inputMode="tel")
+ * - International phone validation
  */
 export function StepAuth() {
   const [phase, setPhase] = useState<AuthPhase>('phone');
+  const [country, setCountry] = useState<CountryCode>('US');
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phoneE164, setPhoneE164] = useState('');
   const [sendError, setSendError] = useState('');
   const [verifyError, setVerifyError] = useState('');
+  const [demoLoading, setDemoLoading] = useState(false);
 
-  const { setStep, setPhone, setToken, setName } = useApplyWizard();
+  const { setStep, setPhone, setToken, setName, demo, branchInfo } = useApplyWizard();
+
+  const currentCountry = findCountryByCode(country);
+  const dialCode = currentCountry?.dialCode ?? '+1';
 
   const [verifySmsStart, { loading: startLoading }] = useMutation<{
     verifySmsStart: unknown;
@@ -75,14 +103,53 @@ export function StepAuth() {
     defaultValues: { code: '' },
   });
 
+  // Format phone as-you-type when user types
+  const handlePhoneChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      const formatted = formatNational(raw, country);
+      phoneForm.setValue('phone', formatted, { shouldValidate: false });
+    },
+    [country, phoneForm]
+  );
+
+  const selectCountry = (entry: CountryEntry) => {
+    setCountry(entry.code);
+    setShowCountryPicker(false);
+    // Clear phone when switching countries since format changes
+    phoneForm.setValue('phone', '', { shouldValidate: false });
+  };
+
   // Phase A submit: send OTP
   const handleSendCode = async (values: PhoneFormValues) => {
     setSendError('');
+
+    // Validate phone for selected country
+    const digits = values.phone.replace(/\D/g, '');
+    if (!digits) {
+      phoneForm.setError('phone', { message: 'Phone number is required' });
+      return;
+    }
+
     try {
+      const valid = isValidPhoneNumber(digits, country);
+      if (!valid) {
+        phoneForm.setError('phone', { message: 'Enter a valid phone number' });
+        return;
+      }
+
       // Format to E.164 (e.g. +12125551234)
-      const parsed = parsePhoneNumber(values.phone, 'US');
+      const parsed = parsePhoneNumber(digits, country);
       const e164 = parsed.format('E.164');
       setPhoneE164(e164);
+
+      if (demo) {
+        setDemoLoading(true);
+        await new Promise((r) => setTimeout(r, 800));
+        setDemoLoading(false);
+        setPhase('otp');
+        return;
+      }
 
       await verifySmsStart({ variables: { phoneNumber: e164 } });
       setPhase('otp');
@@ -95,8 +162,19 @@ export function StepAuth() {
   const handleVerifyCode = async (values: CodeFormValues) => {
     setVerifyError('');
     try {
+      if (demo) {
+        setDemoLoading(true);
+        await new Promise((r) => setTimeout(r, 600));
+        setDemoLoading(false);
+        setToken('demo-token');
+        setPhone(phoneE164);
+        setName(phoneForm.getValues('name'));
+        setStep('roles');
+        return;
+      }
+
       const { data } = await verifySmsCheck({
-        variables: { phoneNumber: phoneE164, code: values.code },
+        variables: { phoneNumber: phoneE164, code: values.code, branchInfo: branchInfo ?? undefined },
       });
 
       // verifySmsCheck returns Any — the token is in data.verifySmsCheck.token
@@ -172,9 +250,9 @@ export function StepAuth() {
           <Button
             type="submit"
             className="w-full h-11"
-            disabled={checkLoading}
+            disabled={checkLoading || demoLoading}
           >
-            {checkLoading ? (
+            {checkLoading || demoLoading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 Verifying...
@@ -242,16 +320,74 @@ export function StepAuth() {
             Phone number
           </label>
           <div className="flex gap-2">
-            <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground select-none shrink-0">
-              +1
+            {/* Country code selector */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCountryPicker(!showCountryPicker)}
+                className="flex h-9 items-center gap-1 rounded-md border border-input bg-muted px-3 text-sm text-foreground select-none shrink-0 hover:bg-accent transition-colors"
+                aria-label={`Country code: ${dialCode} (${currentCountry?.name})`}
+              >
+                <span className="font-medium">{dialCode}</span>
+                <ChevronDown className="size-3.5 text-muted-foreground" />
+              </button>
+
+              {/* Country picker dropdown */}
+              {showCountryPicker && (
+                <>
+                  {/* Backdrop to close on outside click */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowCountryPicker(false)}
+                  />
+                  <div className="absolute left-0 top-full mt-1 z-50 w-64 max-h-72 overflow-y-auto rounded-md border border-border bg-background shadow-lg">
+                    {/* Preferred countries */}
+                    {PREFERRED_COUNTRIES.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => selectCountry(c)}
+                        className={`
+                          w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors hover:bg-accent
+                          ${c.code === country ? 'bg-accent font-medium' : ''}
+                        `}
+                      >
+                        <span className="text-muted-foreground w-10 shrink-0">{c.dialCode}</span>
+                        <span className="truncate">{c.name}</span>
+                      </button>
+                    ))}
+
+                    {/* Divider */}
+                    <div className="border-t border-border my-1" />
+
+                    {/* Other countries */}
+                    {OTHER_COUNTRIES.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => selectCountry(c)}
+                        className={`
+                          w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors hover:bg-accent
+                          ${c.code === country ? 'bg-accent font-medium' : ''}
+                        `}
+                      >
+                        <span className="text-muted-foreground w-10 shrink-0">{c.dialCode}</span>
+                        <span className="truncate">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
+
             <Input
               id="phone"
-              {...phoneForm.register('phone')}
+              value={phoneForm.watch('phone')}
+              onChange={handlePhoneChange}
               type="tel"
               inputMode="tel"
               autoComplete="tel-national"
-              placeholder="(555) 000-0000"
+              placeholder={getPlaceholder(country)}
               className="flex-1"
               aria-invalid={!!phoneForm.formState.errors.phone}
             />
@@ -269,9 +405,9 @@ export function StepAuth() {
         <Button
           type="submit"
           className="w-full h-11"
-          disabled={startLoading}
+          disabled={startLoading || demoLoading}
         >
-          {startLoading ? (
+          {startLoading || demoLoading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
               Sending code...
@@ -283,8 +419,17 @@ export function StepAuth() {
       </form>
 
       <p className="text-center text-xs text-muted-foreground">
-        By continuing, you agree to receive an SMS to verify your number.
-        Standard messaging rates apply.
+        By continuing, you agree to our{' '}
+        <a
+          href="https://moblyze.me/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Terms of Use
+        </a>
+        , including receiving job notifications via SMS. Standard messaging rates
+        may apply.
       </p>
     </div>
   );

@@ -16,8 +16,8 @@ export const VERIFY_SMS_START = gql`
  * Returns: { token: String, userId: ID, role: String, email: String }
  */
 export const VERIFY_SMS_CHECK = gql`
-  mutation verifySmsCheck($phoneNumber: String!, $code: String!) {
-    verifySmsCheck(phoneNumber: $phoneNumber, code: $code)
+  mutation verifySmsCheck($phoneNumber: String!, $code: String!, $branchInfo: BranchInfo) {
+    verifySmsCheck(phoneNumber: $phoneNumber, code: $code, branchInfo: $branchInfo)
   }
 `;
 
