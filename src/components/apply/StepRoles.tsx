@@ -516,7 +516,7 @@ export function StepRoles() {
                 {jobId ? 'Submitting application...' : 'Saving roles...'}
               </>
             ) : (
-              {jobId ? 'Apply Now' : 'Continue'}
+              jobId ? 'Apply Now' : 'Continue'
             )}
           </Button>
         </div>
