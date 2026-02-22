@@ -92,6 +92,32 @@ export type WizardStep =
   | 'success';
 
 /**
+ * Steps in the profile claim wizard
+ */
+export type ClaimStep =
+  | 'landing'
+  | 'phone'
+  | 'verify'
+  | 'roles'
+  | 'certs'
+  | 'location'
+  | 'resume'
+  | 'confirmation';
+
+/**
+ * Location data from Mapbox geocoding
+ */
+export interface GeocodedLocation {
+  displayName: string;
+  city?: string | null;
+  state?: string | null;
+  stateCode?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  coordinates?: { lat: number; lng: number } | null;
+}
+
+/**
  * Wizard state stored in Zustand persist store
  */
 export interface WizardState {
