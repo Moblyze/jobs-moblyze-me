@@ -204,8 +204,26 @@ export function StepRoles() {
   };
 
   const handleApply = async (values: RolesFormValues) => {
+    // In claim mode (no jobId), skip application — just save roles and advance
     if (!jobId) {
-      setSubmitError('Job information missing. Please go back and try again.');
+      try {
+        if (demo) {
+          setDemoLoading(true);
+          await new Promise((r) => setTimeout(r, 500));
+          setDemoLoading(false);
+          setRoles(values.selectedRoleIds);
+          setStep('resume');
+          return;
+        }
+
+        await updateRolePreferences({
+          variables: { candidateRoleIds: values.selectedRoleIds },
+        });
+        setRoles(values.selectedRoleIds);
+        setStep('resume');
+      } catch {
+        setSubmitError('Something went wrong saving your roles. Please try again.');
+      }
       return;
     }
 
@@ -495,10 +513,10 @@ export function StepRoles() {
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Submitting application...
+                {jobId ? 'Submitting application...' : 'Saving roles...'}
               </>
             ) : (
-              'Apply Now'
+              {jobId ? 'Apply Now' : 'Continue'}
             )}
           </Button>
         </div>
