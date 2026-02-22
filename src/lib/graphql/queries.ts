@@ -110,3 +110,19 @@ export const CANDIDATE_ROLES_QUERY = gql`
     }
   }
 `;
+
+/**
+ * Fetch minimal candidate pool info for personalizing the /start landing page.
+ * Public query — no auth required.
+ * Returns only firstName to avoid exposing sensitive data.
+ *
+ * NOTE: This query must be added to the moblyze-api schema as well.
+ * Until then, this will fail gracefully (the landing page shows generic copy).
+ */
+export const CANDIDATE_POOL_PREVIEW_QUERY = gql`
+  query candidatePoolPreview($id: ID!) {
+    candidatePoolPreview(id: $id) {
+      firstName
+    }
+  }
+`;
