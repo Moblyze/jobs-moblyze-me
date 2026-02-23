@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ShieldCheck, Search, ChevronDown, Check, Plus } from 'lucide-react';
+import { ShieldCheck, Search, Check, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { CERT_TAXONOMY } from '@/lib/cert-taxonomy';
 
@@ -21,31 +23,37 @@ interface StepCertsProps {
 /**
  * Step 3 of the claim wizard: certification selection.
  *
- * Category accordion + search, same UX pattern as StepRoles.
- * User can select existing certs and add new ones.
- * "Skip" is always available — certs are optional.
+ * List-based UI with status pills and verify buttons, adapted from the
+ * CertVerification pattern. Category section headers (not collapsible),
+ * search filter, and a selected-certs card at the top.
+ *
+ * "Skip" / "Continue" collapses to a single button in the bottom bar.
  */
-export function StepCerts({ selectedCertNames, onSelectionChange, onNext, profileCertNames = [] }: StepCertsProps) {
+export function StepCerts({
+  selectedCertNames,
+  onSelectionChange,
+  onNext,
+  profileCertNames = [],
+}: StepCertsProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
+  // All certs that are "active" — from profile or user picks
   const allSelected = useMemo(
-    () => new Set([...selectedCertNames, ...profileCertNames]),
+    () => new Set([...profileCertNames, ...selectedCertNames]),
     [selectedCertNames, profileCertNames]
   );
 
   const filteredCategories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return CERT_TAXONOMY
-      .map((cat) => ({
-        category: cat.category,
-        certs: cat.certs.filter((name) => !q || name.toLowerCase().includes(q)),
-      }))
-      .filter((cat) => cat.certs.length > 0);
+    return CERT_TAXONOMY.map((cat) => ({
+      category: cat.category,
+      certs: cat.certs.filter((name) => !q || name.toLowerCase().includes(q)),
+    })).filter((cat) => cat.certs.length > 0);
   }, [searchQuery]);
 
   const toggleCert = (certName: string) => {
-    if (profileCertNames.includes(certName)) return; // Can't deselect profile certs
+    // Profile certs are always on — cannot be deselected here
+    if (profileCertNames.includes(certName)) return;
     const current = new Set(selectedCertNames);
     if (current.has(certName)) {
       current.delete(certName);
@@ -55,52 +63,85 @@ export function StepCerts({ selectedCertNames, onSelectionChange, onNext, profil
     onSelectionChange(Array.from(current));
   };
 
-  const toggleCategory = (name: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  const isCategoryExpanded = (name: string) => {
-    if (searchQuery.trim()) return true;
-    return expandedCategories.has(name);
-  };
+  const hasSelection = allSelected.size > 0;
 
   return (
     <>
       <div className="space-y-5 pb-28">
+        {/* Heading */}
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="size-6" />
             Your certifications
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Adding your tickets helps match you with the right jobs.
-            You can skip this and add them later.
+            Adding your tickets helps match you with the right jobs. You can skip
+            this and add them later.
           </p>
         </div>
 
-        {/* Profile certs already on file */}
-        {profileCertNames.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Already on your profile
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {profileCertNames.map((name) => (
-                <span
-                  key={name}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium"
-                >
-                  <Check className="size-3.5" />
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
+        {/* Selected / profile certs card — CertVerification pattern */}
+        {hasSelection && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="size-4" />
+                Your selected tickets
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                {Array.from(allSelected).map((certName) => {
+                  const isFromProfile = profileCertNames.includes(certName);
+                  return (
+                    <li
+                      key={certName}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate">{certName}</span>
+                        {isFromProfile ? (
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0 text-xs"
+                          >
+                            On profile
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="shrink-0 text-xs text-muted-foreground"
+                          >
+                            Unverified
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Disabled verify button — coming soon */}
+                      <div
+                        className="shrink-0"
+                        title="Verification coming soon"
+                        aria-label="Verification coming soon"
+                      >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          aria-disabled="true"
+                        >
+                          Verify
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <p className="mt-4 text-xs text-muted-foreground">
+                Upload a photo of your ticket to verify. This feature is coming soon.
+              </p>
+            </CardContent>
+          </Card>
         )}
 
         {/* Search */}
@@ -116,8 +157,8 @@ export function StepCerts({ selectedCertNames, onSelectionChange, onNext, profil
           />
         </div>
 
-        {/* Category accordion */}
-        <div className="space-y-1">
+        {/* Cert list grouped by category */}
+        <div className="space-y-4">
           {filteredCategories.length === 0 && searchQuery.trim() && (
             <div className="py-4 text-center">
               <p className="text-sm text-muted-foreground mb-2">
@@ -137,117 +178,94 @@ export function StepCerts({ selectedCertNames, onSelectionChange, onNext, profil
             </div>
           )}
 
-          {filteredCategories.map((category) => {
-            const isExpanded = isCategoryExpanded(category.category);
-            const selectedInCategory = category.certs.filter((c) => allSelected.has(c)).length;
+          {filteredCategories.map((category) => (
+            <div key={category.category}>
+              {/* Section label — not collapsible */}
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-0.5">
+                {category.category}
+              </p>
 
-            return (
-              <div key={category.category} className="border border-border rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleCategory(category.category)}
-                  className="w-full flex items-center justify-between px-3.5 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{category.category}</span>
-                    <span className="text-xs text-muted-foreground font-normal">
-                      {category.certs.length}
-                    </span>
-                    {selectedInCategory > 0 && (
-                      <span className="inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-medium px-1.5">
-                        {selectedInCategory}
-                      </span>
-                    )}
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      'size-4 text-muted-foreground transition-transform',
-                      isExpanded && 'rotate-180'
-                    )}
-                  />
-                </button>
+              <Card className="overflow-hidden py-0">
+                <ul className="divide-y divide-border">
+                  {category.certs.map((certName) => {
+                    const isFromProfile = profileCertNames.includes(certName);
+                    const isSelected = allSelected.has(certName);
 
-                {isExpanded && (
-                  <div className="border-t border-border">
-                    {category.certs.map((certName) => {
-                      const isFromProfile = profileCertNames.includes(certName);
-                      const isSelected = allSelected.has(certName);
-                      return (
+                    return (
+                      <li key={certName}>
                         <button
-                          key={certName}
                           type="button"
                           onClick={() => toggleCert(certName)}
                           disabled={isFromProfile}
                           className={cn(
-                            'w-full flex items-center gap-3 px-3.5 py-2.5 text-sm text-left transition-colors',
+                            'w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-left transition-colors',
                             'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-                            isSelected && 'bg-primary/5',
-                            isFromProfile && 'opacity-60 cursor-not-allowed'
+                            isSelected && !isFromProfile && 'bg-teal-50 dark:bg-teal-950/30',
+                            isFromProfile && 'cursor-default'
                           )}
                         >
-                          <div
-                            className={cn(
-                              'flex items-center justify-center size-5 rounded border shrink-0 transition-colors',
-                              isSelected
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'border-border bg-background'
-                            )}
-                          >
-                            {isSelected && <Check className="size-3" />}
+                          {/* Cert name + status badge */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={cn(
+                                'font-medium truncate',
+                                isSelected ? 'text-foreground' : 'text-foreground'
+                              )}
+                            >
+                              {certName}
+                            </span>
+                            {isFromProfile ? (
+                              <Badge
+                                variant="secondary"
+                                className="shrink-0 text-xs"
+                              >
+                                On profile
+                              </Badge>
+                            ) : isSelected ? (
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-xs text-muted-foreground"
+                              >
+                                Unverified
+                              </Badge>
+                            ) : null}
                           </div>
-                          <span className={cn(isSelected && 'font-medium')}>
-                            {certName}
-                          </span>
-                          {isFromProfile && (
-                            <span className="ml-auto text-xs text-muted-foreground">On profile</span>
+
+                          {/* Toggle indicator */}
+                          {!isFromProfile && (
+                            <div
+                              className={cn(
+                                'shrink-0 flex items-center justify-center size-6 rounded-full border-2 transition-colors',
+                                isSelected
+                                  ? 'border-teal-600 bg-teal-600 text-white'
+                                  : 'border-border bg-background'
+                              )}
+                            >
+                              {isSelected && <Check className="size-3.5" />}
+                            </div>
                           )}
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Sticky bottom bar */}
+      {/* Sticky bottom bar — single button */}
       <div className="fixed bottom-0 left-0 right-0 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
-        <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
-          {selectedCertNames.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <span className="text-xs font-medium text-muted-foreground shrink-0">
-                {allSelected.size} selected:
-              </span>
-              <div className="flex gap-1.5">
-                {Array.from(allSelected).map((name) => (
-                  <span
-                    key={name}
-                    className="inline-flex items-center whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
-            </div>
+        <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {hasSelection && (
+            <p className="text-xs text-muted-foreground text-center mb-2">
+              {allSelected.size} ticket{allSelected.size !== 1 ? 's' : ''} selected
+            </p>
           )}
-
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1 h-11"
-              onClick={onNext}
-            >
-              Skip
-            </Button>
-            <Button
-              className="flex-1 h-11"
-              onClick={onNext}
-            >
-              {allSelected.size > 0 ? 'Continue' : 'Skip'}
-            </Button>
-          </div>
+          <Button className="w-full h-11" onClick={onNext}>
+            {hasSelection ? 'Continue' : 'Skip'}
+          </Button>
         </div>
       </div>
     </>
