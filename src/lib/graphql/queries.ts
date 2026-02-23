@@ -68,6 +68,15 @@ export const CURRENT_USER_QUERY = gql`
           id
           name
         }
+        certification {
+          id
+          name
+        }
+        homeLocation
+        workLocations {
+          id
+          name
+        }
       }
     }
   }

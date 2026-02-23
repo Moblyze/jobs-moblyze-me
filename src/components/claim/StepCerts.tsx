@@ -245,7 +245,7 @@ export function StepCerts({
                           className={cn(
                             'w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-left transition-colors',
                             'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-                            isSelected && !isFromProfile && 'bg-teal-50 dark:bg-teal-950/30',
+                            isSelected && !isFromProfile && 'bg-primary/5',
                             isFromProfile && 'cursor-default'
                           )}
                         >
@@ -275,7 +275,7 @@ export function StepCerts({
                               className={cn(
                                 'shrink-0 flex items-center justify-center size-6 rounded-full border-2 transition-colors',
                                 isSelected
-                                  ? 'border-teal-600 bg-teal-600 text-white'
+                                  ? 'border-primary bg-primary text-primary-foreground'
                                   : 'border-border bg-background'
                               )}
                             >

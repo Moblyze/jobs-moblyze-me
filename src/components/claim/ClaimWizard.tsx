@@ -96,6 +96,9 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       candidateProfile?: {
         resumeUrl?: string;
         roles?: Array<{ id: string; name: string }>;
+        certification?: Array<{ id: string; name?: string | null }> | null;
+        homeLocation?: string | null;
+        workLocations?: Array<{ id: string; name: string }> | null;
       };
     };
   }>(CURRENT_USER_QUERY, {
@@ -115,8 +118,54 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       claimWizard.setRoles(profile.roles.map((r: { id: string }) => r.id));
       applyWizard.setRoles(profile.roles.map((r: { id: string }) => r.id));
     }
+    // Pre-fill certifications from profile
+    if (profile?.certification?.length && claimWizard.selectedCertNames.length === 0) {
+      const certNames = profile.certification
+        .map((c) => c.name)
+        .filter((name): name is string => Boolean(name));
+      if (certNames.length > 0) {
+        claimWizard.setCerts(certNames);
+      }
+    }
+    // Pre-fill home location from profile
+    if (profile?.homeLocation && !claimWizard.location?.displayName) {
+      claimWizard.setLocation({
+        displayName: profile.homeLocation,
+        city: null,
+        state: null,
+        stateCode: null,
+        country: null,
+        countryCode: null,
+        coordinates: null,
+      });
+    }
+    // Pre-fill work locations from profile
+    if (profile?.workLocations?.length && claimWizard.workLocations.length === 0) {
+      claimWizard.setWorkLocations(profile.workLocations.map((wl) => wl.name));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserData, returning]);
+
+  // Derived profile data for passing to child steps
+  const profileCertNames = useMemo(() => {
+    const certs = currentUserData?.currentUser?.candidateProfile?.certification;
+    if (!certs) return [];
+    return certs.map((c) => c.name).filter((name): name is string => Boolean(name));
+  }, [currentUserData]);
+
+  const profileLocation = useMemo(() => {
+    const homeLocation = currentUserData?.currentUser?.candidateProfile?.homeLocation;
+    if (!homeLocation) return null;
+    return {
+      displayName: homeLocation,
+      city: null as string | null,
+      state: null as string | null,
+      stateCode: null as string | null,
+      country: null as string | null,
+      countryCode: null as string | null,
+      coordinates: null as { lat: number; lng: number } | null,
+    };
+  }, [currentUserData]);
 
   const currentStep = claimWizard.step;
   const progressValue = getProgressValue(currentStep);
@@ -294,6 +343,7 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       <ClaimConfirmation
         name={claimWizard.name}
         selectedRoleIds={claimWizard.selectedRoleIds}
+        workLocations={claimWizard.workLocations}
         demo={claimWizard.demo}
       />
     );
@@ -351,12 +401,14 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
           selectedCertNames={claimWizard.selectedCertNames}
           onSelectionChange={(certs) => claimWizard.setCerts(certs)}
           onNext={handleCertsNext}
+          profileCertNames={profileCertNames}
         />
       )}
 
       {currentStep === 'location' && (
         <StepLocation
           location={claimWizard.location}
+          profileLocation={profileLocation}
           onSelect={(loc) => claimWizard.setLocation(loc)}
           workLocations={claimWizard.workLocations}
           onWorkLocationsChange={(locs) => claimWizard.setWorkLocations(locs)}

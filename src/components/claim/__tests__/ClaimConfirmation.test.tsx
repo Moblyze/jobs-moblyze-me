@@ -28,6 +28,7 @@ describe('ClaimConfirmation', () => {
   const defaultProps = {
     name: 'Jesse',
     selectedRoleIds: ['role-1'],
+    workLocations: ['Houston, TX'],
     demo: false,
   };
 
@@ -68,12 +69,15 @@ describe('ClaimConfirmation', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows demo matching jobs in demo mode', () => {
+  it('shows two job carousels in demo mode', () => {
     render(
       <ClaimConfirmation {...defaultProps} demo={true} />
     );
-    // In demo mode, MatchingJobs uses DEMO_MATCHING_JOBS
-    expect(screen.getByText('Jobs matching your profile')).toBeInTheDocument();
-    expect(screen.getByText('Journeyman Electrician')).toBeInTheDocument();
+    expect(screen.getByText('Jobs that look like a good match')).toBeInTheDocument();
+    expect(screen.getByText('Additional jobs you may want to look at')).toBeInTheDocument();
+    // Best matches carousel
+    expect(screen.getByText('Master Electrician')).toBeInTheDocument();
+    // Additional jobs carousel
+    expect(screen.getByText('B-Pressure Welder')).toBeInTheDocument();
   });
 });

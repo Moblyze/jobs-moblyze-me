@@ -48,6 +48,9 @@ interface CurrentUserResult {
     candidateProfile?: {
       resumeUrl?: string | null;
       roles?: Array<{ id: string; name: string }> | null;
+      certification?: Array<{ id: string; name?: string | null }> | null;
+      homeLocation?: string | null;
+      workLocations?: Array<{ id: string; name: string }> | null;
     } | null;
   };
 }

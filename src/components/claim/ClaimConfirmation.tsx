@@ -8,12 +8,19 @@ import { JobCard } from '@/components/job/JobCard';
 import { PUBLIC_JOBS_QUERY, CANDIDATE_ROLES_QUERY } from '@/lib/graphql/queries';
 import type { PublicJobCard } from '@/types';
 
-/** Demo jobs for claim confirmation */
-const DEMO_MATCHING_JOBS: PublicJobCard[] = [
-  { id: 'match-1', slug: 'journeyman-electrician-houston', title: 'Journeyman Electrician', employerName: 'Gulf Coast Energy Services', location: 'Houston, TX', employmentTypeText: 'Full-time', payRateText: '$45-55/hr', startDateText: 'March 10, 2026', createdAt: '2026-02-15T00:00:00Z' },
-  { id: 'match-2', slug: 'industrial-electrician-dallas', title: 'Industrial Electrician', employerName: 'Vertex Energy Services', location: 'Dallas, TX', employmentTypeText: 'Contract', payRateText: '$50-60/hr', startDateText: 'March 17, 2026', createdAt: '2026-02-14T00:00:00Z' },
-  { id: 'match-3', slug: 'pipefitter-turnaround', title: 'Pipefitter — Turnaround', employerName: 'Clearstream Energy', location: 'Fort McMurray, AB', employmentTypeText: 'Contract', payRateText: '$52/hr + LOA', startDateText: 'March 24, 2026', createdAt: '2026-02-13T00:00:00Z' },
-  { id: 'match-4', slug: 'welder-b-pressure', title: 'B-Pressure Welder', employerName: 'Aecon Industrial', location: 'Edmonton, AB', employmentTypeText: 'Full-time', payRateText: '$48-58/hr', startDateText: 'April 7, 2026', createdAt: '2026-02-12T00:00:00Z' },
+/** Demo jobs — best matches (role + location match). Slugs must exist in DEMO_JOBS map. */
+const DEMO_BEST_MATCHES: PublicJobCard[] = [
+  { id: 'preview-001', slug: 'journeyman-electrician-houston-tx-12345', title: 'Journeyman Electrician', employerName: 'Gulf Coast Energy Services', location: 'Houston, TX', employmentTypeText: 'Full-time', payRateText: '$38–45/hr', startDateText: 'March 3, 2026', createdAt: '2026-02-15T00:00:00Z' },
+  { id: 'demo-emp-1', slug: 'master-electrician-dallas', title: 'Master Electrician', employerName: 'Gulf Coast Energy Services', location: 'Dallas, TX', employmentTypeText: 'Full-time', payRateText: '$48–55/hr', startDateText: 'March 10, 2026', createdAt: '2026-02-15T00:00:00Z' },
+  { id: 'demo-emp-2', slug: 'apprentice-electrician-houston', title: 'Apprentice Electrician', employerName: 'Gulf Coast Energy Services', location: 'Houston, TX', employmentTypeText: 'Full-time', payRateText: '$22–28/hr', startDateText: 'March 17, 2026', createdAt: '2026-02-14T00:00:00Z' },
+];
+
+/** Demo jobs — additional (right/adjacent roles, different locations). Slugs must exist in DEMO_JOBS map. */
+const DEMO_ADDITIONAL_JOBS: PublicJobCard[] = [
+  { id: 'demo-sim-1', slug: 'electrician-calgary', title: 'Journeyman Electrician', employerName: 'Vertex Energy Services', location: 'Calgary, AB', employmentTypeText: 'Full-time', payRateText: '$45–55/hr', startDateText: 'March 3, 2026', createdAt: '2026-02-15T00:00:00Z' },
+  { id: 'demo-sim-2', slug: 'pipefitter-fort-mcmurray', title: 'Pipefitter — Turnaround', employerName: 'Clearstream Energy', location: 'Fort McMurray, AB', employmentTypeText: 'Contract', payRateText: '$52/hr + LOA', startDateText: 'March 24, 2026', createdAt: '2026-02-14T00:00:00Z' },
+  { id: 'demo-sim-3', slug: 'welder-b-pressure', title: 'B-Pressure Welder', employerName: 'Aecon Industrial', location: 'Edmonton, AB', employmentTypeText: 'Full-time', payRateText: '$48–58/hr', startDateText: 'April 7, 2026', createdAt: '2026-02-13T00:00:00Z' },
+  { id: 'demo-sim-4', slug: 'heavy-equipment-operator', title: 'Heavy Equipment Operator', employerName: 'North American Construction', location: 'Grande Prairie, AB', employmentTypeText: 'Rotational', payRateText: '$42/hr + camp', startDateText: 'March 15, 2026', createdAt: '2026-02-12T00:00:00Z' },
 ];
 
 function getAppDeepLink(): string {
@@ -22,14 +29,26 @@ function getAppDeepLink(): string {
 
 interface MatchingJobsProps {
   selectedRoleIds: string[];
+  workLocations: string[];
   demo?: boolean;
 }
 
+/** Check if a job location fuzzy-matches any of the user's work locations */
+function locationMatches(jobLocation: string, workLocations: string[]): boolean {
+  const jobLoc = jobLocation.toLowerCase();
+  return workLocations.some((loc) => {
+    const userLoc = loc.toLowerCase();
+    // Match city name (e.g. "Houston" in "Houston, TX")
+    const city = userLoc.split(',')[0].trim();
+    return jobLoc.includes(city) || userLoc.includes(jobLoc.split(',')[0].trim());
+  });
+}
+
 /**
- * Fetch all public jobs, score by role name overlap with the user's selected roles,
- * and display the best matches.
+ * Fetch all public jobs, score by role name overlap + location,
+ * and display two carousels: best matches and additional jobs.
  */
-function MatchingJobs({ selectedRoleIds, demo }: MatchingJobsProps) {
+function MatchingJobs({ selectedRoleIds, workLocations, demo }: MatchingJobsProps) {
   // Fetch all roles to map IDs → names
   const { data: rolesData } = useQuery<{ paginatedCandidateRoles?: { roles: Array<{ id: string; name: string }> } }>(CANDIDATE_ROLES_QUERY, {
     variables: { limit: 500 },
@@ -52,31 +71,52 @@ function MatchingJobs({ selectedRoleIds, demo }: MatchingJobsProps) {
     );
   }, [selectedRoleIds, rolesData]);
 
-  // Score and sort jobs
-  const matchedJobs = useMemo(() => {
-    if (demo) return DEMO_MATCHING_JOBS;
+  // Split jobs into best matches (role + location) and additional (role only)
+  const { bestMatches, additionalJobs } = useMemo(() => {
+    if (demo) return { bestMatches: DEMO_BEST_MATCHES, additionalJobs: DEMO_ADDITIONAL_JOBS };
 
     const jobs = jobsData?.publicJobs ?? [];
-    if (jobs.length === 0) return [];
+    if (jobs.length === 0) return { bestMatches: [], additionalJobs: [] };
 
-    // Score each job by role name overlap
+    // Score each job
     const scored = jobs.map((job) => {
       const jobRoleNames = (job.roles ?? []).map((r) => r.name);
       const roleScore = jobRoleNames.filter((name) => selectedRoleNames.has(name)).length;
-      return { ...job, score: roleScore };
+      const hasLocationMatch = locationMatches(job.location, workLocations);
+      return { ...job, roleScore, hasLocationMatch };
     });
 
-    // Sort: matches first (by score desc), then by recency
-    scored.sort((a, b) => {
-      if (a.score !== b.score) return b.score - a.score;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    // Best matches: has role overlap AND location match
+    const best = scored
+      .filter((j) => j.roleScore > 0 && j.hasLocationMatch)
+      .sort((a, b) => b.roleScore - a.roleScore || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
 
-    return scored.slice(0, 6);
-  }, [demo, jobsData, selectedRoleNames]);
+    // Additional: has role overlap but NO location match (exclude jobs already in best)
+    const bestIds = new Set(best.map((j) => j.id));
+    const additional = scored
+      .filter((j) => j.roleScore > 0 && !j.hasLocationMatch && !bestIds.has(j.id))
+      .sort((a, b) => b.roleScore - a.roleScore || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
+
+    // If no location-based split is possible (no work locations), fall back to single list
+    if (workLocations.length === 0) {
+      const all = scored
+        .filter((j) => j.roleScore > 0)
+        .sort((a, b) => b.roleScore - a.roleScore || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return { bestMatches: all.slice(0, 6), additionalJobs: [] as typeof all };
+    }
+
+    return { bestMatches: best, additionalJobs: additional };
+  }, [demo, jobsData, selectedRoleNames, workLocations]);
 
   if (demo) {
-    return <JobCarousel title="Jobs matching your profile" jobs={DEMO_MATCHING_JOBS} />;
+    return (
+      <>
+        <JobCarousel title="Jobs that look like a good match" jobs={DEMO_BEST_MATCHES} />
+        <JobCarousel title="Additional jobs you may want to look at" jobs={DEMO_ADDITIONAL_JOBS} />
+      </>
+    );
   }
 
   if (loading) {
@@ -87,12 +127,21 @@ function MatchingJobs({ selectedRoleIds, demo }: MatchingJobsProps) {
     );
   }
 
-  if (matchedJobs.length === 0) return null;
+  if (bestMatches.length === 0 && additionalJobs.length === 0) return null;
 
-  const hasMatches = matchedJobs.some((j) => 'score' in j && (j as { score: number }).score > 0);
-  const title = hasMatches ? 'Jobs matching your profile' : 'Latest opportunities';
-
-  return <JobCarousel title={title} jobs={matchedJobs} />;
+  return (
+    <>
+      {bestMatches.length > 0 && (
+        <JobCarousel
+          title={workLocations.length > 0 ? 'Jobs that look like a good match' : 'Jobs matching your profile'}
+          jobs={bestMatches}
+        />
+      )}
+      {additionalJobs.length > 0 && (
+        <JobCarousel title="Additional jobs you may want to look at" jobs={additionalJobs} />
+      )}
+    </>
+  );
 }
 
 function JobCarousel({ title, jobs }: { title: string; jobs: PublicJobCard[] }) {
@@ -115,23 +164,26 @@ function JobCarousel({ title, jobs }: { title: string; jobs: PublicJobCard[] }) 
 interface ClaimConfirmationProps {
   name: string | null;
   selectedRoleIds: string[];
+  workLocations: string[];
   demo?: boolean;
 }
 
 /**
  * Claim flow confirmation page.
  *
- * Shows: success banner, name greeting, matching jobs carousel, app download CTA.
+ * Shows: success banner, name greeting, two job carousels, app download CTA.
  */
-export function ClaimConfirmation({ name, selectedRoleIds, demo }: ClaimConfirmationProps) {
+export function ClaimConfirmation({ name, selectedRoleIds, workLocations, demo }: ClaimConfirmationProps) {
   const appDeepLink = getAppDeepLink();
   // Capture all needed data in refs BEFORE reset clears wizard state
   const capturedName = useRef(name);
   const capturedRoleIds = useRef(selectedRoleIds);
+  const capturedWorkLocations = useRef(workLocations);
 
   useEffect(() => {
     if (name) capturedName.current = name;
     if (selectedRoleIds.length > 0) capturedRoleIds.current = selectedRoleIds;
+    if (workLocations.length > 0) capturedWorkLocations.current = workLocations;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -145,15 +197,20 @@ export function ClaimConfirmation({ name, selectedRoleIds, demo }: ClaimConfirma
         <h1 className="text-2xl font-bold tracking-tight">
           {capturedName.current ? `You're in, ${capturedName.current}!` : "You're in!"}
         </h1>
+        <div className="h-2" />
         <p className="text-muted-foreground text-sm">
           We&apos;ll send you new jobs that are a good match for you. Use the app to browse more
           jobs, build your profile, and check your application status.
         </p>
       </div>
 
-      {/* Matching Jobs — only show when we have roles to match against */}
+      {/* Job Carousels — best matches + additional jobs */}
       {hasRoles && (
-        <MatchingJobs selectedRoleIds={capturedRoleIds.current} demo={demo} />
+        <MatchingJobs
+          selectedRoleIds={capturedRoleIds.current}
+          workLocations={capturedWorkLocations.current}
+          demo={demo}
+        />
       )}
 
       {/* Sticky App Download Footer — matches wizard steps' sticky bar pattern */}
