@@ -25,23 +25,40 @@ export default function StartPageClient() {
   const searchParams = useSearchParams();
   const candidatePoolId = searchParams.get('candidate_id');
   const demo = searchParams.get('demo') === 'true';
+  const returning = searchParams.get('returning') === 'true';
+  const initialStep = searchParams.get('step');
 
   const claimWizard = useClaimWizard();
   const applyWizard = useApplyWizard();
   const { isAuthenticated } = useAuth();
 
   // Fetch candidate first name for personalized landing page
-  const { data: previewData } = useQuery(CANDIDATE_POOL_PREVIEW_QUERY, {
+  const { data: previewData } = useQuery<{ candidatePoolPreview?: { firstName?: string } }>(CANDIDATE_POOL_PREVIEW_QUERY, {
     variables: { id: candidatePoolId },
     skip: !candidatePoolId || demo,
   });
 
-  const firstName = demo ? 'Demo' : previewData?.candidatePoolPreview?.firstName ?? null;
+  const firstName = demo ? 'Jesse' : previewData?.candidatePoolPreview?.firstName ?? null;
 
   // Initialize claim wizard on mount
   useEffect(() => {
     if (candidatePoolId) {
       claimWizard.setCandidatePoolId(candidatePoolId);
+    }
+
+    if (returning) {
+      claimWizard.setReturning(true);
+    }
+
+    // Restore step from URL if present
+    if (initialStep && !demo) {
+      const validSteps = ['phone', 'verify', 'roles', 'certs', 'location', 'resume', 'confirmation'];
+      if (validSteps.includes(initialStep)) {
+        claimWizard.setStep(initialStep as any);
+        if (initialStep === 'phone' || initialStep === 'verify') {
+          applyWizard.setStep(initialStep as any);
+        }
+      }
     }
 
     if (demo) {
@@ -79,7 +96,7 @@ export default function StartPageClient() {
   return (
     <main className="min-h-screen bg-background">
       <AttributionCapture />
-      <ClaimWizard candidatePoolId={candidatePoolId} firstName={firstName} />
+      <ClaimWizard candidatePoolId={candidatePoolId} firstName={firstName} returning={returning} />
     </main>
   );
 }

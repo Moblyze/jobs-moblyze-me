@@ -344,7 +344,7 @@ export function StepRoles() {
                 {suggestedRoles.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                      Suggested for this job
+                      {jobId ? 'Suggested for this job' : 'Popular trades'}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {suggestedRoles.map((role) => {
@@ -480,10 +480,10 @@ export function StepRoles() {
 
       {/* Sticky bottom bar — always visible */}
       <div className="fixed bottom-0 left-0 right-0 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
-        <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
+        <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {/* Selected summary */}
           {selectedRoleNames.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mb-3">
               <span className="text-xs font-medium text-muted-foreground shrink-0">
                 {selectedRoleNames.length} selected:
               </span>
@@ -501,9 +501,10 @@ export function StepRoles() {
           )}
 
           {submitError && (
-            <p className="text-sm text-destructive">{submitError}</p>
+            <p className="text-sm text-destructive mb-2">{submitError}</p>
           )}
 
+          <div className="h-4 mb-3" />
           <Button
             type="submit"
             form="roles-form"
@@ -519,6 +520,13 @@ export function StepRoles() {
               jobId ? 'Apply Now' : 'Continue'
             )}
           </Button>
+          <div className="min-h-[2.5rem] mt-2 flex items-start justify-center">
+            {watchedRoleIds.length === 0 && (
+              <p className="text-center text-xs text-destructive">
+                We need at least one trade. Select more to see more jobs.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </>

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { useClaimWizard } from '@/hooks/useClaimWizard';
@@ -18,7 +19,7 @@ import type { ClaimStep } from '@/types';
 
 const STEP_LABELS: Record<ClaimStep, string> = {
   landing: 'Welcome',
-  phone: 'Sign In',
+  phone: 'Verify Phone',
   verify: 'Verify Code',
   roles: 'Select Roles',
   certs: 'Certifications',
@@ -57,6 +58,7 @@ function getStepNumber(step: ClaimStep): number {
 interface ClaimWizardProps {
   candidatePoolId?: string | null;
   firstName?: string | null;
+  returning?: boolean;
 }
 
 /**
@@ -65,14 +67,18 @@ interface ClaimWizardProps {
  * Reuses StepAuth and StepCV from apply flow. StepAuth writes to useApplyWizard;
  * this component bridges the auth result into useClaimWizard.
  */
-export function ClaimWizard({ candidatePoolId, firstName }: ClaimWizardProps) {
+export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWizardProps) {
   const claimWizard = useClaimWizard();
   const applyWizard = useApplyWizard();
 
   const totalSteps = 5;
 
-  // Bridge: when StepAuth completes (writes token to applyWizard), sync to claimWizard
+  // Bridge: sync applyWizard step transitions to claimWizard
   useEffect(() => {
+    if (applyWizard.step === 'verify' && claimWizard.step === 'phone') {
+      // OTP sent — sync to claim wizard so back button shows
+      claimWizard.setStep('verify');
+    }
     if (applyWizard.token && applyWizard.step === 'roles') {
       // Auth completed — sync to claim wizard
       claimWizard.setToken(applyWizard.token);
@@ -84,15 +90,70 @@ export function ClaimWizard({ candidatePoolId, firstName }: ClaimWizardProps) {
   }, [applyWizard.token, applyWizard.step]);
 
   // Fetch current user after auth for pre-filling
-  const { data: currentUserData } = useQuery(CURRENT_USER_QUERY, {
+  const { data: currentUserData } = useQuery<{
+    currentUser?: {
+      firstName?: string;
+      candidateProfile?: {
+        resumeUrl?: string;
+        roles?: Array<{ id: string; name: string }>;
+      };
+    };
+  }>(CURRENT_USER_QUERY, {
     skip: !claimWizard.token || claimWizard.demo,
   });
+
+  // Pre-fill from currentUser profile when returning
+  useEffect(() => {
+    if (!currentUserData?.currentUser || !returning) return;
+    const user = currentUserData.currentUser;
+    const profile = user.candidateProfile;
+
+    if (user.firstName && !claimWizard.name) {
+      claimWizard.setName(user.firstName);
+    }
+    if (profile?.roles?.length && claimWizard.selectedRoleIds.length === 0) {
+      claimWizard.setRoles(profile.roles.map((r: { id: string }) => r.id));
+      applyWizard.setRoles(profile.roles.map((r: { id: string }) => r.id));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserData, returning]);
 
   const currentStep = claimWizard.step;
   const progressValue = getProgressValue(currentStep);
   const stepNumber = getStepNumber(currentStep);
 
+  // Sync step to URL for shareable/bookmarkable steps
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (currentStep !== 'landing') {
+        params.set('step', currentStep);
+      } else {
+        params.delete('step');
+      }
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+    } catch {
+      // jsdom or SSR — skip URL sync
+    }
+  }, [currentStep]);
+
   const canGoBack = currentStep === 'verify' || currentStep === 'certs' || currentStep === 'location' || currentStep === 'resume';
+
+  // Skip is only visible when the user hasn't selected anything on the current step
+  const canSkip = (() => {
+    switch (currentStep) {
+      case 'certs':
+        return claimWizard.selectedCertNames.length === 0;
+      case 'location':
+        return !claimWizard.location?.displayName && claimWizard.workLocations.length === 0;
+      case 'resume':
+        return true; // CV is always skippable (file selection is local)
+      default:
+        return false;
+    }
+  })();
 
   const handleBack = () => {
     switch (currentStep) {
@@ -102,12 +163,27 @@ export function ClaimWizard({ candidatePoolId, firstName }: ClaimWizardProps) {
         break;
       case 'certs':
         claimWizard.setStep('roles');
+        applyWizard.setStep('roles');
         break;
       case 'location':
         claimWizard.setStep('certs');
         break;
       case 'resume':
         claimWizard.setStep('location');
+        break;
+    }
+  };
+
+  const handleSkip = () => {
+    switch (currentStep) {
+      case 'certs':
+        handleCertsNext();
+        break;
+      case 'location':
+        handleLocationNext();
+        break;
+      case 'resume':
+        handleCVComplete();
         break;
     }
   };
@@ -137,52 +213,76 @@ export function ClaimWizard({ candidatePoolId, firstName }: ClaimWizardProps) {
 
   // Landing page
   if (currentStep === 'landing') {
+    const handleGetStarted = () => {
+      // Pre-fill name into applyWizard so StepAuth has it
+      if (firstName) {
+        applyWizard.setName(firstName);
+        claimWizard.setName(firstName);
+      }
+      claimWizard.setStep('phone');
+      applyWizard.setStep('phone');
+    };
+
     return (
-      <div className="mx-auto max-w-lg px-4 py-12">
-        <div className="space-y-6 text-center">
+      <div className="mx-auto max-w-lg px-4 flex flex-col min-h-screen">
+        {/* Logo pinned to top */}
+        <div className="pt-10 pb-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/moblyze-app-icon.webp`}
+            src="https://www.moblyze.me/images/SiteNavLogo.png"
             alt="Moblyze"
-            width={64}
-            height={64}
-            className="rounded-xl mx-auto"
+            width={144}
+            height={32}
+            className="mx-auto"
           />
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {firstName ? `Hey ${firstName}, claim your profile` : 'Claim your profile on Moblyze'}
-            </h1>
-            <p className="mt-3 text-muted-foreground">
-              Tell us about your skills and experience, and we&apos;ll match you
-              with the best opportunities in energy and skilled trades.
-            </p>
-          </div>
-          <ul className="text-sm text-muted-foreground space-y-2 text-left max-w-xs mx-auto">
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center text-center pb-28">
+          <h1 className="text-3xl font-bold tracking-tight py-6">
+            {returning && firstName
+              ? `Welcome back, ${firstName}`
+              : firstName
+                ? `${firstName}, claim your profile`
+                : returning
+                  ? 'Welcome back to Moblyze'
+                  : 'Claim your profile on Moblyze'}
+          </h1>
+
+          <p className="text-muted-foreground mb-10">
+            Confirm your details and we&apos;ll match you to the best Energy jobs.
+          </p>
+          <ul className="text-sm text-muted-foreground space-y-3 text-left max-w-xs mx-auto">
             <li className="flex items-center gap-2">
               <span className="size-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">1</span>
-              Verify your phone number
+              Confirm your phone number
             </li>
             <li className="flex items-center gap-2">
               <span className="size-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">2</span>
-              Select your trades & certifications
+              Verify your trades and certs
             </li>
             <li className="flex items-center gap-2">
               <span className="size-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
-              Get matched with jobs
+              We&apos;ll send you new job matches
             </li>
           </ul>
-          <button
-            onClick={() => {
-              claimWizard.setStep('phone');
-              applyWizard.setStep('phone');
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground font-semibold h-12 px-8 text-base transition-colors hover:bg-primary/90"
-          >
-            Get Started
-          </button>
-          <p className="text-xs text-muted-foreground">
-            Takes about 2 minutes. No download required.
-          </p>
+        </div>
+
+        {/* Sticky bottom bar */}
+        <div className="fixed bottom-0 left-0 right-0 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
+          <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="h-4 mb-3" />
+            <Button
+              onClick={handleGetStarted}
+              className="w-full h-11"
+            >
+              Get Started
+            </Button>
+            <div className="min-h-[2.5rem] mt-2 flex items-start justify-center">
+              <p className="text-center text-xs text-muted-foreground">
+                Verify your info in a couple minutes.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -195,36 +295,46 @@ export function ClaimWizard({ candidatePoolId, firstName }: ClaimWizardProps) {
         name={claimWizard.name}
         selectedRoleIds={claimWizard.selectedRoleIds}
         demo={claimWizard.demo}
-        onReset={() => claimWizard.reset()}
       />
     );
   }
 
   // Wizard steps
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
+    <div className="mx-auto max-w-lg px-6 pt-8 pb-6">
       {/* Progress header */}
-      {currentStep !== 'phone' && currentStep !== 'verify' && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">{STEP_LABELS[currentStep]}</span>
-            <span className="text-xs text-muted-foreground">
-              Step {stepNumber} of {totalSteps}
-            </span>
-          </div>
-          <Progress value={progressValue} className="h-1" />
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">{STEP_LABELS[currentStep]}</span>
+          <span className="text-xs text-muted-foreground">
+            Step {stepNumber} of {totalSteps}
+          </span>
         </div>
-      )}
+        <Progress value={progressValue} className="h-1" />
+      </div>
 
-      {/* Back button */}
-      {canGoBack && (
-        <button
-          onClick={handleBack}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="size-3" />
-          {currentStep === 'verify' ? 'Change number' : 'Back'}
-        </button>
+      {/* Navigation row: Back (left) + Skip (right) */}
+      {(canGoBack || canSkip) && (
+        <div className="flex items-center justify-between mb-4">
+          {canGoBack ? (
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="size-3" />
+              {currentStep === 'verify' ? 'Change number' : 'Back'}
+            </button>
+          ) : <div />}
+          {canSkip ? (
+            <button
+              onClick={handleSkip}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Skip
+              <ArrowRight className="size-3.5" />
+            </button>
+          ) : <div />}
+        </div>
       )}
 
       {/* Step content */}
@@ -248,6 +358,8 @@ export function ClaimWizard({ candidatePoolId, firstName }: ClaimWizardProps) {
         <StepLocation
           location={claimWizard.location}
           onSelect={(loc) => claimWizard.setLocation(loc)}
+          workLocations={claimWizard.workLocations}
+          onWorkLocationsChange={(locs) => claimWizard.setWorkLocations(locs)}
           onNext={handleLocationNext}
           demo={claimWizard.demo}
         />

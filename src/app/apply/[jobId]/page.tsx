@@ -1,41 +1,16 @@
-'use client';
+import { Suspense } from 'react';
+import { DEMO_JOBS } from '@/lib/demo-jobs';
+import ApplyPageClient from './ApplyPageClient';
 
-import { use, useEffect } from 'react';
-import { useApplyWizard } from '@/hooks/useApplyWizard';
-import { useAuth } from '@/hooks/useAuth';
-import { ApplyWizard } from '@/components/apply/ApplyWizard';
-
-interface ApplyPageProps {
-  params: Promise<{ jobId: string }>;
-  searchParams: Promise<{ slug?: string; jobTitle?: string }>;
+/** Pre-render demo job IDs for static export */
+export function generateStaticParams() {
+  return Array.from(DEMO_JOBS.values()).map((job) => ({ jobId: job.id }));
 }
 
-/**
- * Apply wizard page — client component (auth requires localStorage).
- * Route: /apply/[jobId]?slug={jobSlug}&jobTitle={jobTitle}
- *
- * If already authenticated, skips auth step and goes directly to role selection.
- */
-export default function ApplyPage({ params, searchParams }: ApplyPageProps) {
-  const { jobId } = use(params);
-  const { slug, jobTitle } = use(searchParams);
-
-  const { setJobContext, setStep, step } = useApplyWizard();
-  const { isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    // Store job context in wizard state for cross-step access
-    setJobContext(jobId, slug ?? '');
-
-    // Already authenticated: skip phone OTP, go straight to role selection
-    if (isAuthenticated && (step === 'phone' || step === 'verify')) {
-      setStep('roles');
-    }
-  }, [jobId, slug, isAuthenticated, setJobContext, setStep, step]);
-
+export default function ApplyPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <ApplyWizard jobTitle={jobTitle} />
-    </main>
+    <Suspense>
+      <ApplyPageClient />
+    </Suspense>
   );
 }

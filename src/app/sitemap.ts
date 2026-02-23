@@ -3,6 +3,8 @@ import { getApolloClient } from '@/lib/apollo-client';
 import { PUBLIC_JOBS_QUERY } from '@/lib/graphql/queries';
 import type { PublicJobCard } from '@/types';
 
+export const dynamic = 'force-static';
+
 const BASE_URL = 'https://jobs.moblyze.me';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

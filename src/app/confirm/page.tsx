@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { ConfirmationContent } from '@/components/confirm/ConfirmationContent';
+import { Suspense } from 'react';
+import ConfirmPageClient from './ConfirmPageClient';
 
 export const metadata: Metadata = {
   title: 'Application Submitted | Moblyze',
@@ -7,24 +8,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-interface ConfirmPageProps {
-  searchParams: Promise<{ jobId?: string; slug?: string }>;
-}
-
 /**
- * Post-apply confirmation page — Server Component shell.
- *
+ * Post-apply confirmation page.
  * Route: /confirm?jobId={jobId}&slug={jobSlug}
- *
- * Reads jobId and slug from search params and passes to the client
- * ConfirmationContent which handles wizard state cleanup and CTAs.
+ * Uses client component to read searchParams (required for static export).
  */
-export default async function ConfirmPage({ searchParams }: ConfirmPageProps) {
-  const { jobId, slug } = await searchParams;
-
+export default function ConfirmPage() {
   return (
     <main className="min-h-screen bg-background">
-      <ConfirmationContent jobId={jobId} slug={slug} />
+      <Suspense>
+        <ConfirmPageClient />
+      </Suspense>
     </main>
   );
 }

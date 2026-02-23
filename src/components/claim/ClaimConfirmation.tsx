@@ -31,7 +31,7 @@ interface MatchingJobsProps {
  */
 function MatchingJobs({ selectedRoleIds, demo }: MatchingJobsProps) {
   // Fetch all roles to map IDs → names
-  const { data: rolesData } = useQuery(CANDIDATE_ROLES_QUERY, {
+  const { data: rolesData } = useQuery<{ paginatedCandidateRoles?: { roles: Array<{ id: string; name: string }> } }>(CANDIDATE_ROLES_QUERY, {
     variables: { limit: 500 },
     skip: demo,
   });
@@ -89,7 +89,7 @@ function MatchingJobs({ selectedRoleIds, demo }: MatchingJobsProps) {
 
   if (matchedJobs.length === 0) return null;
 
-  const hasMatches = matchedJobs.some((j) => (j as { score?: number }).score && (j as { score: number }).score > 0);
+  const hasMatches = matchedJobs.some((j) => 'score' in j && (j as { score: number }).score > 0);
   const title = hasMatches ? 'Jobs matching your profile' : 'Latest opportunities';
 
   return <JobCarousel title={title} jobs={matchedJobs} />;
@@ -116,7 +116,6 @@ interface ClaimConfirmationProps {
   name: string | null;
   selectedRoleIds: string[];
   demo?: boolean;
-  onReset: () => void;
 }
 
 /**
@@ -124,42 +123,45 @@ interface ClaimConfirmationProps {
  *
  * Shows: success banner, name greeting, matching jobs carousel, app download CTA.
  */
-export function ClaimConfirmation({ name, selectedRoleIds, demo, onReset }: ClaimConfirmationProps) {
+export function ClaimConfirmation({ name, selectedRoleIds, demo }: ClaimConfirmationProps) {
   const appDeepLink = getAppDeepLink();
+  // Capture all needed data in refs BEFORE reset clears wizard state
   const capturedName = useRef(name);
+  const capturedRoleIds = useRef(selectedRoleIds);
 
   useEffect(() => {
     if (name) capturedName.current = name;
-    // Reset wizard state after capturing name
-    onReset();
+    if (selectedRoleIds.length > 0) capturedRoleIds.current = selectedRoleIds;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const hasRoles = capturedRoleIds.current.length > 0;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 pb-32">
       {/* Success Banner */}
       <div className="flex flex-col items-center text-center space-y-2 pb-6">
         <CheckCircle2 className="size-14 text-green-500" />
-        <h1 className="text-2xl font-bold tracking-tight">Profile Claimed!</h1>
-        {capturedName.current && (
-          <p className="text-lg font-semibold">Nice work, {capturedName.current}.</p>
-        )}
+        <h1 className="text-2xl font-bold tracking-tight">
+          {capturedName.current ? `You're in, ${capturedName.current}!` : "You're in!"}
+        </h1>
         <p className="text-muted-foreground text-sm">
-          You&apos;re all set. We&apos;ll match you with the best opportunities for your skills.
+          We&apos;ll send you new jobs that are a good match for you. Use the app to browse more
+          jobs, build your profile, and check your application status.
         </p>
       </div>
 
-      {/* Matching Jobs */}
-      <MatchingJobs selectedRoleIds={selectedRoleIds} demo={demo} />
+      {/* Matching Jobs — only show when we have roles to match against */}
+      {hasRoles && (
+        <MatchingJobs selectedRoleIds={capturedRoleIds.current} demo={demo} />
+      )}
 
-      {/* Sticky App Download Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-3">
-        <div className="mx-auto max-w-2xl space-y-2">
-          <p className="text-xs text-muted-foreground text-center">
-            Track your matches, get notified about new jobs, and manage your profile in the app.
-          </p>
+      {/* Sticky App Download Footer — matches wizard steps' sticky bar pattern */}
+      <div className="fixed bottom-0 left-0 right-0 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-50">
+        <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="h-4 mb-3" />
           <a href={appDeepLink} target="_blank" rel="noopener noreferrer">
-            <Button variant="default" className="w-full h-12 font-semibold relative">
+            <Button variant="default" className="w-full h-11 font-semibold relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/moblyze-app-icon.webp`}
@@ -171,6 +173,11 @@ export function ClaimConfirmation({ name, selectedRoleIds, demo, onReset }: Clai
               Download the Moblyze App
             </Button>
           </a>
+          <div className="min-h-[2.5rem] mt-2 flex items-start justify-center">
+            <p className="text-center text-xs text-muted-foreground">
+              Track your matches, get notified about new jobs, and manage your profile.
+            </p>
+          </div>
         </div>
       </div>
     </div>
