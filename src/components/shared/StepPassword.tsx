@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@apollo/client/react';
-import { Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Lock, Loader2, Eye, EyeOff, Circle, CircleCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SET_FIRST_PASSWORD } from '@/lib/graphql/mutations';
@@ -71,6 +71,9 @@ export function StepPassword({ onComplete, demo }: StepPasswordProps) {
     }
   };
 
+  const passwordValue = form.watch('password');
+  const meetsLength = passwordValue.length >= 6;
+
   const isSubmitting = loading || demoLoading;
 
   return (
@@ -111,11 +114,18 @@ export function StepPassword({ onComplete, demo }: StepPasswordProps) {
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
-            {form.formState.errors.password && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.password.message}
-              </p>
-            )}
+            <div className="flex items-center gap-2 mt-1.5">
+              {passwordValue.length === 0 ? (
+                <Circle className="size-4 text-muted-foreground shrink-0" />
+              ) : meetsLength ? (
+                <CircleCheck className="size-4 text-emerald-600 shrink-0" />
+              ) : (
+                <Circle className="size-4 text-muted-foreground shrink-0" />
+              )}
+              <span className={`text-sm transition-colors duration-200 ${meetsLength ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                At least 6 characters
+              </span>
+            </div>
           </div>
 
           <div className="space-y-1.5">
