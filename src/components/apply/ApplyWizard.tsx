@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { StepAuth } from './StepAuth';
+import { StepPassword } from '@/components/shared/StepPassword';
 import { StepRoles } from './StepRoles';
 import { StepCV } from './StepCV';
 import type { WizardStep } from '@/types';
@@ -19,6 +20,7 @@ const STEP_LABELS: Record<WizardStep, string> = {
   phone: 'Sign In',
   verify: 'Verify Code',
   name: 'Sign In',
+  password: 'Create Password',
   roles: 'Select Roles',
   resume: 'Upload CV',
   confirm: 'Submit',
@@ -26,8 +28,9 @@ const STEP_LABELS: Record<WizardStep, string> = {
 };
 
 function getProgressValue(step: WizardStep): number {
-  if (step === 'phone' || step === 'name') return 25;
-  if (step === 'verify') return 40;
+  if (step === 'phone' || step === 'name') return 20;
+  if (step === 'verify') return 33;
+  if (step === 'password') return 45;
   if (step === 'roles') return 66;
   if (step === 'resume') return 85;
   return 100;
@@ -35,9 +38,10 @@ function getProgressValue(step: WizardStep): number {
 
 function getCurrentStepNumber(step: WizardStep): number {
   if (step === 'phone' || step === 'verify' || step === 'name') return 1;
-  if (step === 'roles') return 2;
-  if (step === 'resume') return 3;
-  return 3;
+  if (step === 'password') return 2;
+  if (step === 'roles') return 3;
+  if (step === 'resume') return 4;
+  return 4;
 }
 
 /**
@@ -53,19 +57,21 @@ export function ApplyWizard({ jobTitle }: ApplyWizardProps) {
 
   const progressValue = getProgressValue(step);
   const currentStepNum = getCurrentStepNumber(step);
-  // Total steps: auth (1) + roles (2) + cv optional (3)
-  const totalSteps = 3;
+  // Total steps: auth (1) + password (2) + roles (3) + cv optional (4)
+  const totalSteps = 4;
 
   const backToJobHref = demo ? '/preview' : jobSlug ? `/jobs/${jobSlug}` : '/';
 
   /** Whether a back button should be shown for the current step */
-  const canGoBack = step === 'verify' || ((step === 'roles' || step === 'resume') && demo);
+  const canGoBack = step === 'verify' || ((step === 'password' || step === 'roles' || step === 'resume') && demo);
 
   const handleBack = () => {
     if (step === 'verify') {
       setStep('phone');
-    } else if (step === 'roles') {
+    } else if (step === 'password') {
       setStep('phone');
+    } else if (step === 'roles') {
+      setStep('password');
     } else if (step === 'resume') {
       setStep('roles');
     }
@@ -126,6 +132,12 @@ export function ApplyWizard({ jobTitle }: ApplyWizardProps) {
 
       {/* Step content */}
       {(step === 'phone' || step === 'verify') && <StepAuth />}
+      {step === 'password' && (
+        <StepPassword
+          onComplete={() => setStep('roles')}
+          demo={demo}
+        />
+      )}
       {step === 'roles' && <StepRoles />}
       {step === 'resume' && <StepCV onComplete={handleCVComplete} />}
     </div>

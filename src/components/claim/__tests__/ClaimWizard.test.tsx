@@ -21,11 +21,15 @@ vi.mock('@/lib/graphql/queries', () => ({
   CANDIDATE_POOL_PREVIEW_QUERY: { kind: 'Document', definitions: [] },
   CURRENT_USER_QUERY: { kind: 'Document', definitions: [] },
   CANDIDATE_ROLES_QUERY: { kind: 'Document', definitions: [] },
+  CANDIDATE_WORK_LOCATIONS_QUERY: { kind: 'Document', definitions: [] },
   PUBLIC_JOBS_QUERY: { kind: 'Document', definitions: [] },
 }));
 
 vi.mock('@/lib/graphql/mutations', () => ({
   UPDATE_ROLE_PREFERENCES: { kind: 'Document', definitions: [] },
+  UPDATE_WORK_LOCATION_PREFERENCES: { kind: 'Document', definitions: [] },
+  UPLOAD_CERTIFICATION: { kind: 'Document', definitions: [] },
+  SET_FIRST_PASSWORD: { kind: 'Document', definitions: [] },
 }));
 
 // Mock child components that are complex or make API calls
@@ -35,6 +39,14 @@ vi.mock('@/components/apply/StepAuth', () => ({
 
 vi.mock('@/components/apply/StepRoles', () => ({
   StepRoles: () => <div data-testid="step-roles">StepRoles Mock</div>,
+}));
+
+vi.mock('@/components/shared/StepPassword', () => ({
+  StepPassword: ({ onComplete }: { onComplete: () => void }) => (
+    <div data-testid="step-password">
+      <button onClick={onComplete}>Set Password</button>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/apply/StepCV', () => ({
@@ -112,7 +124,7 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Select Roles')).toBeInTheDocument();
-      expect(screen.getByText('Step 2 of 5')).toBeInTheDocument();
+      expect(screen.getByText('Step 3 of 6')).toBeInTheDocument();
     });
 
     it('shows progress bar on certs step', () => {
@@ -122,7 +134,7 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Certifications')).toBeInTheDocument();
-      expect(screen.getByText('Step 3 of 5')).toBeInTheDocument();
+      expect(screen.getByText('Step 4 of 6')).toBeInTheDocument();
     });
 
     it('shows progress bar on location step', () => {
@@ -132,7 +144,7 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Location')).toBeInTheDocument();
-      expect(screen.getByText('Step 4 of 5')).toBeInTheDocument();
+      expect(screen.getByText('Step 5 of 6')).toBeInTheDocument();
     });
 
     it('shows progress bar on resume step', () => {
@@ -142,7 +154,7 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Upload CV')).toBeInTheDocument();
-      expect(screen.getByText('Step 5 of 5')).toBeInTheDocument();
+      expect(screen.getByText('Step 6 of 6')).toBeInTheDocument();
     });
 
     it('shows progress bar on phone step', () => {
@@ -151,7 +163,7 @@ describe('ClaimWizard', () => {
       });
 
       render(<ClaimWizard />);
-      expect(screen.getByText('Step 1 of 5')).toBeInTheDocument();
+      expect(screen.getByText('Step 1 of 6')).toBeInTheDocument();
     });
 
     it('shows back button on verify step', () => {
@@ -190,13 +202,13 @@ describe('ClaimWizard', () => {
       expect(screen.getByText('Back')).toBeInTheDocument();
     });
 
-    it('does not show back button on roles step', () => {
+    it('shows back button on roles step', () => {
       act(() => {
         useClaimWizard.getState().setStep('roles');
       });
 
       render(<ClaimWizard />);
-      expect(screen.queryByText('Back')).not.toBeInTheDocument();
+      expect(screen.getByText('Back')).toBeInTheDocument();
     });
 
     it('back button on certs goes to roles', async () => {

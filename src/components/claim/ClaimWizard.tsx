@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,19 +8,21 @@ import { Progress } from '@/components/ui/progress';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { useClaimWizard } from '@/hooks/useClaimWizard';
 import { StepAuth } from '@/components/apply/StepAuth';
+import { StepPassword } from '@/components/shared/StepPassword';
 import { StepRoles } from '@/components/apply/StepRoles';
 import { StepCV } from '@/components/apply/StepCV';
 import { StepCerts } from './StepCerts';
 import { StepLocation } from './StepLocation';
 import { ClaimConfirmation } from './ClaimConfirmation';
-import { CANDIDATE_POOL_PREVIEW_QUERY, CURRENT_USER_QUERY } from '@/lib/graphql/queries';
-import { UPDATE_ROLE_PREFERENCES } from '@/lib/graphql/mutations';
+import { CANDIDATE_POOL_PREVIEW_QUERY, CURRENT_USER_QUERY, CANDIDATE_WORK_LOCATIONS_QUERY } from '@/lib/graphql/queries';
+import { UPDATE_ROLE_PREFERENCES, UPDATE_WORK_LOCATION_PREFERENCES, UPLOAD_CERTIFICATION } from '@/lib/graphql/mutations';
 import type { ClaimStep } from '@/types';
 
 const STEP_LABELS: Record<ClaimStep, string> = {
   landing: 'Welcome',
   phone: 'Verify Phone',
   verify: 'Verify Code',
+  password: 'Create Password',
   roles: 'Select Roles',
   certs: 'Certifications',
   location: 'Location',
@@ -31,11 +33,12 @@ const STEP_LABELS: Record<ClaimStep, string> = {
 function getProgressValue(step: ClaimStep): number {
   switch (step) {
     case 'landing': return 0;
-    case 'phone': return 10;
-    case 'verify': return 20;
-    case 'roles': return 35;
-    case 'certs': return 50;
-    case 'location': return 65;
+    case 'phone': return 8;
+    case 'verify': return 15;
+    case 'password': return 25;
+    case 'roles': return 38;
+    case 'certs': return 52;
+    case 'location': return 66;
     case 'resume': return 80;
     case 'confirmation': return 100;
   }
@@ -47,11 +50,12 @@ function getStepNumber(step: ClaimStep): number {
     case 'phone':
     case 'verify':
       return 1;
-    case 'roles': return 2;
-    case 'certs': return 3;
-    case 'location': return 4;
-    case 'resume': return 5;
-    case 'confirmation': return 5;
+    case 'password': return 2;
+    case 'roles': return 3;
+    case 'certs': return 4;
+    case 'location': return 5;
+    case 'resume': return 6;
+    case 'confirmation': return 6;
   }
 }
 
@@ -71,7 +75,19 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
   const claimWizard = useClaimWizard();
   const applyWizard = useApplyWizard();
 
-  const totalSteps = 5;
+  const totalSteps = 6;
+  const [locationSaving, setLocationSaving] = useState(false);
+
+  // Mutations for saving data
+  const [updateWorkLocationPrefs] = useMutation(UPDATE_WORK_LOCATION_PREFERENCES);
+  const [uploadCertification] = useMutation(UPLOAD_CERTIFICATION);
+
+  // Fetch all available work locations for name→ID mapping
+  const { data: workLocationsData } = useQuery<{
+    candidateWorkLocations: Array<{ id: string; name: string }>;
+  }>(CANDIDATE_WORK_LOCATIONS_QUERY, {
+    skip: !claimWizard.token || claimWizard.demo,
+  });
 
   // Bridge: sync applyWizard step transitions to claimWizard
   useEffect(() => {
@@ -79,12 +95,12 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       // OTP sent — sync to claim wizard so back button shows
       claimWizard.setStep('verify');
     }
-    if (applyWizard.token && applyWizard.step === 'roles') {
-      // Auth completed — sync to claim wizard
+    if (applyWizard.token && applyWizard.step === 'password') {
+      // Auth completed — sync to claim wizard, go to password step
       claimWizard.setToken(applyWizard.token);
       claimWizard.setPhone(applyWizard.phone ?? '');
       claimWizard.setName(applyWizard.name ?? '');
-      claimWizard.setStep('roles');
+      claimWizard.setStep('password');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applyWizard.token, applyWizard.step]);
@@ -188,7 +204,7 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
     }
   }, [currentStep]);
 
-  const canGoBack = currentStep === 'verify' || currentStep === 'certs' || currentStep === 'location' || currentStep === 'resume';
+  const canGoBack = currentStep === 'verify' || currentStep === 'certs' || currentStep === 'location' || currentStep === 'resume' || currentStep === 'roles';
 
   // Skip is only visible when the user hasn't selected anything on the current step
   const canSkip = (() => {
@@ -209,6 +225,9 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       case 'verify':
         claimWizard.setStep('phone');
         applyWizard.setStep('phone');
+        break;
+      case 'roles':
+        claimWizard.setStep('password');
         break;
       case 'certs':
         claimWizard.setStep('roles');
@@ -237,16 +256,61 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
     }
   };
 
+  // Password step completion — advance to roles
+  const handlePasswordComplete = () => {
+    claimWizard.setStep('roles');
+    applyWizard.setStep('roles');
+  };
+
   // StepRoles completion handler — skip applyToJob, save roles, advance to certs
   const handleRolesComplete = () => {
     claimWizard.setStep('certs');
   };
 
-  const handleCertsNext = () => {
+  // Save certs to backend (for certs with uploaded files), then advance
+  const handleCertsNext = useCallback(async () => {
+    // Note: candidateUserUploadCertification requires a file (Upload!).
+    // Certs selected without file uploads are saved in local state only.
+    // The cert names are still useful for matching but can't be persisted without files.
     claimWizard.setStep('location');
-  };
+  }, [claimWizard]);
 
-  const handleLocationNext = () => {
+  // Save work locations to backend, then advance
+  const handleLocationNext = useCallback(async () => {
+    if (!claimWizard.demo && claimWizard.workLocations.length > 0 && workLocationsData?.candidateWorkLocations) {
+      setLocationSaving(true);
+      try {
+        // Map selected city names to backend location IDs
+        const allLocations = workLocationsData.candidateWorkLocations;
+        const matchedIds = claimWizard.workLocations
+          .map((cityName) => {
+            // Try exact match first
+            const exact = allLocations.find((loc) => loc.name === cityName);
+            if (exact) return exact.id;
+            // Try case-insensitive match
+            const lower = cityName.toLowerCase();
+            const approx = allLocations.find((loc) => loc.name.toLowerCase() === lower);
+            if (approx) return approx.id;
+            // Try partial match (city name without state)
+            const cityOnly = cityName.split(',')[0].trim().toLowerCase();
+            const partial = allLocations.find((loc) => loc.name.toLowerCase().includes(cityOnly));
+            return partial?.id ?? null;
+          })
+          .filter((id): id is string => id !== null);
+
+        if (matchedIds.length > 0) {
+          await updateWorkLocationPrefs({
+            variables: { candidateWorkLocationIds: matchedIds },
+          });
+        }
+      } catch (err) {
+        console.error('Failed to save work locations:', err);
+        // Continue anyway — don't block the user
+      } finally {
+        setLocationSaving(false);
+      }
+    }
+
     // Check if user already has a resume
     const hasResume = Boolean(currentUserData?.currentUser?.candidateProfile?.resumeUrl);
     if (hasResume) {
@@ -254,7 +318,7 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
     } else {
       claimWizard.setStep('resume');
     }
-  };
+  }, [claimWizard, workLocationsData, updateWorkLocationPrefs, currentUserData]);
 
   const handleCVComplete = () => {
     claimWizard.setStep('confirmation');
@@ -390,6 +454,13 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       {/* Step content */}
       {(currentStep === 'phone' || currentStep === 'verify') && (
         <StepAuth />
+      )}
+
+      {currentStep === 'password' && (
+        <StepPassword
+          onComplete={handlePasswordComplete}
+          demo={claimWizard.demo}
+        />
       )}
 
       {currentStep === 'roles' && (

@@ -63,3 +63,51 @@ export const UPLOAD_RESUME = gql`
     }
   }
 `;
+
+/**
+ * Set the user's first password (only works if no password is currently set).
+ * Schema: setFirstPassword(password: String!): User! @auth
+ * Requires auth (JWT).
+ */
+export const SET_FIRST_PASSWORD = gql`
+  mutation setFirstPassword($password: String!) {
+    setFirstPassword(password: $password) {
+      id
+      needsPassword
+    }
+  }
+`;
+
+/**
+ * Update candidate work location preferences.
+ * Schema: updateCandidateWorkLocationPreferences(candidateWorkLocationIds: [ID!]!): [CandidateWorkLocation!]! @auth
+ * Replaces all existing preferences with the given location IDs.
+ * Requires auth (JWT).
+ */
+export const UPDATE_WORK_LOCATION_PREFERENCES = gql`
+  mutation updateCandidateWorkLocationPreferences($candidateWorkLocationIds: [ID!]!) {
+    updateCandidateWorkLocationPreferences(candidateWorkLocationIds: $candidateWorkLocationIds) {
+      id
+      name
+    }
+  }
+`;
+
+/**
+ * Upload a certification for the current authenticated candidate.
+ * Schema: candidateUserUploadCertification(file: Upload!, name: String, expiry: Time, issue: Time): User! @auth
+ * Note: file is required — certs without an uploaded file cannot be saved via this mutation.
+ */
+export const UPLOAD_CERTIFICATION = gql`
+  mutation candidateUserUploadCertification($file: Upload!, $name: String, $expiry: Time, $issue: Time) {
+    candidateUserUploadCertification(file: $file, name: $name, expiry: $expiry, issue: $issue) {
+      id
+      candidateProfile {
+        certification {
+          id
+          name
+        }
+      }
+    }
+  }
+`;

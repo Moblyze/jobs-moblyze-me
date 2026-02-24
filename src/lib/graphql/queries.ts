@@ -128,6 +128,20 @@ export const CANDIDATE_ROLES_QUERY = gql`
  * NOTE: This query must be added to the moblyze-api schema as well.
  * Until then, this will fail gracefully (the landing page shows generic copy).
  */
+/**
+ * Fetch all available candidate work locations for mapping city names to IDs.
+ * Used when saving work location preferences (the mutation takes IDs, not names).
+ * Requires auth (JWT).
+ */
+export const CANDIDATE_WORK_LOCATIONS_QUERY = gql`
+  query candidateWorkLocations {
+    candidateWorkLocations {
+      id
+      name
+    }
+  }
+`;
+
 export const CANDIDATE_POOL_PREVIEW_QUERY = gql`
   query candidatePoolPreview($id: ID!) {
     candidatePoolPreview(id: $id) {

@@ -178,7 +178,7 @@ export function StepAuth() {
         setToken('demo-token');
         setPhone(phoneE164);
         setName(phoneForm.getValues('name'));
-        setStep('roles');
+        setStep('password');
         return;
       }
 
@@ -199,7 +199,7 @@ export function StepAuth() {
       setToken(token);
       setPhone(phoneE164);
       setName(phoneForm.getValues('name'));
-      setStep('roles');
+      setStep('password');
     } catch {
       setVerifyError('Invalid code. Please try again.');
     }
