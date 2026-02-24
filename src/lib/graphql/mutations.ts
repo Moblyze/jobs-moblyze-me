@@ -111,3 +111,18 @@ export const UPLOAD_CERTIFICATION = gql`
     }
   }
 `;
+
+/**
+ * Update candidate profile details (home location, visa, employment pref, etc).
+ * Schema: updateCandidateProfileDetails(homeLocation: String, visaTypes: String, employmentPreference: String, gender: String, labourUnion: Boolean): User! @auth
+ */
+export const UPDATE_CANDIDATE_PROFILE_DETAILS = gql`
+  mutation updateCandidateProfileDetails($homeLocation: String) {
+    updateCandidateProfileDetails(homeLocation: $homeLocation) {
+      id
+      candidateProfile {
+        homeLocation
+      }
+    }
+  }
+`;

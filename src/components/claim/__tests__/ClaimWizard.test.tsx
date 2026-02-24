@@ -30,6 +30,7 @@ vi.mock('@/lib/graphql/mutations', () => ({
   UPDATE_WORK_LOCATION_PREFERENCES: { kind: 'Document', definitions: [] },
   UPLOAD_CERTIFICATION: { kind: 'Document', definitions: [] },
   SET_FIRST_PASSWORD: { kind: 'Document', definitions: [] },
+  UPDATE_CANDIDATE_PROFILE_DETAILS: { kind: 'Document', definitions: [] },
 }));
 
 // Mock child components that are complex or make API calls

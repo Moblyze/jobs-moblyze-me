@@ -9,13 +9,20 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { CERT_TAXONOMY } from '@/lib/cert-taxonomy';
 
+/** A cert with an uploaded file, ready for backend upload */
+export interface CertUpload {
+  name: string;
+  file: File;
+  expiry?: string; // ISO date string
+}
+
 interface StepCertsProps {
   /** Currently selected cert names */
   selectedCertNames: string[];
   /** Called when selection changes */
   onSelectionChange: (certNames: string[]) => void;
   /** Called when user advances to next step */
-  onNext: () => void;
+  onNext: (uploads: CertUpload[]) => void;
   /** Pre-existing certs from the user's profile (shown as "already on profile") */
   profileCertNames?: string[];
 }
@@ -34,7 +41,7 @@ export function StepCerts({
   profileCertNames = [],
 }: StepCertsProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [uploadedCerts, setUploadedCerts] = useState<Set<string>>(new Set());
+  const [uploadedCerts, setUploadedCerts] = useState<Record<string, File>>({});
   const [expiryDates, setExpiryDates] = useState<Record<string, string>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -76,9 +83,7 @@ export function StepCerts({
   const handleFileChange = (certName: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Track that this cert has a photo selected
-    setUploadedCerts(prev => new Set(prev).add(certName));
-    // TODO: Wire to uploadCertVerification mutation when API exists
+    setUploadedCerts(prev => ({ ...prev, [certName]: file }));
   };
 
   const handleUploadClick = (certName: string) => {
@@ -107,7 +112,7 @@ export function StepCerts({
             <CardContent className="space-y-3 pt-5">
               {Array.from(allSelected).map((certName) => {
                 const isFromProfile = profileCertNames.includes(certName);
-                const isUploaded = uploadedCerts.has(certName);
+                const isUploaded = certName in uploadedCerts;
                 return (
                   <div
                     key={certName}
@@ -298,7 +303,14 @@ export function StepCerts({
         <div className="max-w-lg mx-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="h-4 mb-3" />
 
-          <Button className="w-full h-11" onClick={onNext} disabled={!hasSelection}>
+          <Button className="w-full h-11" onClick={() => {
+            const uploads: CertUpload[] = Object.entries(uploadedCerts).map(([name, file]) => ({
+              name,
+              file,
+              expiry: expiryDates[name],
+            }));
+            onNext(uploads);
+          }} disabled={!hasSelection}>
             Continue
           </Button>
           <div className="min-h-[2.5rem] mt-2 flex items-start justify-center">

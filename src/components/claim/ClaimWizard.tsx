@@ -15,7 +15,8 @@ import { StepCerts } from './StepCerts';
 import { StepLocation } from './StepLocation';
 import { ClaimConfirmation } from './ClaimConfirmation';
 import { CANDIDATE_POOL_PREVIEW_QUERY, CURRENT_USER_QUERY, CANDIDATE_WORK_LOCATIONS_QUERY } from '@/lib/graphql/queries';
-import { UPDATE_ROLE_PREFERENCES, UPDATE_WORK_LOCATION_PREFERENCES, UPLOAD_CERTIFICATION } from '@/lib/graphql/mutations';
+import { UPDATE_ROLE_PREFERENCES, UPDATE_WORK_LOCATION_PREFERENCES, UPLOAD_CERTIFICATION, UPDATE_CANDIDATE_PROFILE_DETAILS } from '@/lib/graphql/mutations';
+import type { CertUpload } from './StepCerts';
 import type { ClaimStep } from '@/types';
 
 const STEP_LABELS: Record<ClaimStep, string> = {
@@ -81,6 +82,7 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
   // Mutations for saving data
   const [updateWorkLocationPrefs] = useMutation(UPDATE_WORK_LOCATION_PREFERENCES);
   const [uploadCertification] = useMutation(UPLOAD_CERTIFICATION);
+  const [updateProfileDetails] = useMutation(UPDATE_CANDIDATE_PROFILE_DETAILS);
 
   // Fetch all available work locations for name→ID mapping
   const { data: workLocationsData } = useQuery<{
@@ -245,7 +247,7 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
   const handleSkip = () => {
     switch (currentStep) {
       case 'certs':
-        handleCertsNext();
+        handleCertsNext([]);
         break;
       case 'location':
         handleLocationNext();
@@ -268,44 +270,69 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
   };
 
   // Save certs to backend (for certs with uploaded files), then advance
-  const handleCertsNext = useCallback(async () => {
-    // Note: candidateUserUploadCertification requires a file (Upload!).
-    // Certs selected without file uploads are saved in local state only.
-    // The cert names are still useful for matching but can't be persisted without files.
+  const handleCertsNext = useCallback(async (uploads: CertUpload[]) => {
+    // Upload certs that have files attached (backend requires file: Upload!)
+    if (!claimWizard.demo && uploads.length > 0) {
+      await Promise.allSettled(
+        uploads.map((cert) =>
+          uploadCertification({
+            variables: {
+              file: cert.file,
+              name: cert.name,
+              expiry: cert.expiry || null,
+            },
+          })
+        )
+      );
+      // Errors are silently ignored — don't block the user
+    }
     claimWizard.setStep('location');
-  }, [claimWizard]);
+  }, [claimWizard, uploadCertification]);
 
-  // Save work locations to backend, then advance
+  // Save home location + work locations to backend, then advance
   const handleLocationNext = useCallback(async () => {
-    if (!claimWizard.demo && claimWizard.workLocations.length > 0 && workLocationsData?.candidateWorkLocations) {
+    if (!claimWizard.demo) {
       setLocationSaving(true);
       try {
-        // Map selected city names to backend location IDs
-        const allLocations = workLocationsData.candidateWorkLocations;
-        const matchedIds = claimWizard.workLocations
-          .map((cityName) => {
-            // Try exact match first
-            const exact = allLocations.find((loc) => loc.name === cityName);
-            if (exact) return exact.id;
-            // Try case-insensitive match
-            const lower = cityName.toLowerCase();
-            const approx = allLocations.find((loc) => loc.name.toLowerCase() === lower);
-            if (approx) return approx.id;
-            // Try partial match (city name without state)
-            const cityOnly = cityName.split(',')[0].trim().toLowerCase();
-            const partial = allLocations.find((loc) => loc.name.toLowerCase().includes(cityOnly));
-            return partial?.id ?? null;
-          })
-          .filter((id): id is string => id !== null);
+        const saves: Promise<unknown>[] = [];
 
-        if (matchedIds.length > 0) {
-          await updateWorkLocationPrefs({
-            variables: { candidateWorkLocationIds: matchedIds },
-          });
+        // Save home location
+        if (claimWizard.location?.displayName) {
+          saves.push(
+            updateProfileDetails({
+              variables: { homeLocation: claimWizard.location.displayName },
+            })
+          );
         }
+
+        // Save work location preferences
+        if (claimWizard.workLocations.length > 0 && workLocationsData?.candidateWorkLocations) {
+          const allLocations = workLocationsData.candidateWorkLocations;
+          const matchedIds = claimWizard.workLocations
+            .map((cityName) => {
+              const exact = allLocations.find((loc) => loc.name === cityName);
+              if (exact) return exact.id;
+              const lower = cityName.toLowerCase();
+              const approx = allLocations.find((loc) => loc.name.toLowerCase() === lower);
+              if (approx) return approx.id;
+              const cityOnly = cityName.split(',')[0].trim().toLowerCase();
+              const partial = allLocations.find((loc) => loc.name.toLowerCase().includes(cityOnly));
+              return partial?.id ?? null;
+            })
+            .filter((id): id is string => id !== null);
+
+          if (matchedIds.length > 0) {
+            saves.push(
+              updateWorkLocationPrefs({
+                variables: { candidateWorkLocationIds: matchedIds },
+              })
+            );
+          }
+        }
+
+        await Promise.allSettled(saves);
       } catch (err) {
-        console.error('Failed to save work locations:', err);
-        // Continue anyway — don't block the user
+        console.error('Failed to save locations:', err);
       } finally {
         setLocationSaving(false);
       }
@@ -318,7 +345,7 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
     } else {
       claimWizard.setStep('resume');
     }
-  }, [claimWizard, workLocationsData, updateWorkLocationPrefs, currentUserData]);
+  }, [claimWizard, workLocationsData, updateWorkLocationPrefs, updateProfileDetails, currentUserData]);
 
   const handleCVComplete = () => {
     claimWizard.setStep('confirmation');
