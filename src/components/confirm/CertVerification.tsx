@@ -1,40 +1,75 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ShieldCheck, CheckCircle2, Upload, Calendar, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+interface CertEntry {
+  id: string;
+  name: string;
+  status: 'verified' | 'uploaded' | 'pending';
+  expiry?: string | null;
+}
 
 /**
- * Placeholder certifications shown in the verify UI.
+ * Demo certifications matching the approved UI.
  *
  * TODO: In a future phase, pull these from the candidate's actual
  * profile/wizard state — certs claimed during onboarding or
  * extracted from uploaded CV.
  */
-const PLACEHOLDER_CERTS = [
-  { id: '1', name: 'Red Seal Electrician' },
-  { id: '2', name: 'WHMIS 2015' },
-  { id: '3', name: 'H2S Alive' },
+const DEMO_CERTS: CertEntry[] = [
+  { id: '1', name: 'Red Seal Electrician', status: 'verified', expiry: 'Jun 15, 2028' },
+  { id: '2', name: 'WHMIS 2015', status: 'uploaded', expiry: 'Nov 20, 2026' },
+  { id: '3', name: 'H2S Alive', status: 'pending', expiry: null },
 ];
 
 /**
- * Deferred cert verification UI.
+ * Cert verification UI for the confirmation page.
  *
- * Shows claimed certifications with an "Unverified" badge and
- * disabled "Verify" buttons. Verification is not yet wired to
- * the API — this is a placeholder to set expectations and
- * collect interest for the feature.
+ * Three states per cert:
+ * - Verified: green "Verified" badge + expiry date
+ * - Uploaded: green "Uploaded" badge + expiry date (awaiting review)
+ * - Pending: date input + Upload button
  *
- * TODO: Wire "Verify" buttons to uploadCertVerification mutation
- * once that API endpoint exists on the backend.
- *
- * Audience: skilled trades workers who expect plain, direct language.
+ * Includes "+ Add Certification" at the bottom to add more.
  */
 export function CertVerification() {
-  // Only render when there are certs to show
-  // TODO: Replace placeholder with real candidate cert data from wizard state or API
-  const certs = PLACEHOLDER_CERTS;
+  const [certs, setCerts] = useState<CertEntry[]>(DEMO_CERTS);
+  const [addingCert, setAddingCert] = useState(false);
+  const [newCertName, setNewCertName] = useState('');
+  const newCertInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = (certId: string) => {
+    // Demo: simulate upload by changing status to 'uploaded'
+    setCerts((prev) =>
+      prev.map((c) =>
+        c.id === certId ? { ...c, status: 'uploaded' as const, expiry: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) } : c
+      )
+    );
+  };
+
+  const handleExpiryChange = (certId: string, value: string) => {
+    if (!value) return;
+    const date = new Date(value + 'T00:00:00');
+    const formatted = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    setCerts((prev) =>
+      prev.map((c) => (c.id === certId ? { ...c, expiry: formatted } : c))
+    );
+  };
+
+  const handleAddCert = () => {
+    if (!newCertName.trim()) return;
+    setCerts((prev) => [
+      ...prev,
+      { id: `new-${Date.now()}`, name: newCertName.trim(), status: 'pending', expiry: null },
+    ]);
+    setNewCertName('');
+    setAddingCert(false);
+  };
 
   if (certs.length === 0) return null;
 
@@ -46,46 +81,100 @@ export function CertVerification() {
           Verify Your Tickets
         </CardTitle>
         <CardDescription>
-          Verified tickets increase your chances of getting called. We&apos;ll let you
-          know when verification is available.
+          Uploading a photo of each certification moves you up the candidate list.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ul className="space-y-3">
-          {certs.map((cert) => (
-            <li
-              key={cert.id}
-              className="flex items-center justify-between gap-3"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm font-medium truncate">{cert.name}</span>
-                <Badge variant="outline" className="shrink-0 text-xs text-muted-foreground">
-                  Unverified
+      <CardContent className="space-y-3">
+        {certs.map((cert) => (
+          <div
+            key={cert.id}
+            className="rounded-lg border border-border p-3 space-y-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">{cert.name}</span>
+              {cert.status === 'verified' && (
+                <Badge variant="outline" className="shrink-0 text-xs text-green-600 border-green-200 bg-green-50">
+                  <CheckCircle2 className="size-3 mr-1" />
+                  Verified
                 </Badge>
-              </div>
+              )}
+              {cert.status === 'uploaded' && (
+                <Badge variant="outline" className="shrink-0 text-xs text-green-600 border-green-200 bg-green-50">
+                  <CheckCircle2 className="size-3 mr-1" />
+                  Uploaded
+                </Badge>
+              )}
+            </div>
 
-              {/* Disabled verify button — coming soon tooltip */}
-              <div
-                className="shrink-0"
-                title="Verification coming soon"
-                aria-label="Verification coming soon"
-              >
+            {cert.status === 'verified' && cert.expiry && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="size-3" />
+                Expires {cert.expiry}
+              </div>
+            )}
+
+            {cert.status === 'uploaded' && cert.expiry && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="size-3" />
+                Expires {cert.expiry}
+              </div>
+            )}
+
+            {cert.status === 'pending' && (
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="date"
+                    className="pl-8 h-9 text-sm"
+                    placeholder="Expiry date"
+                    onChange={(e) => handleExpiryChange(cert.id, e.target.value)}
+                  />
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled
-                  aria-disabled="true"
+                  className="shrink-0 gap-1.5"
+                  onClick={() => handleUpload(cert.id)}
                 >
-                  Verify
+                  <Upload className="size-3.5" />
+                  Upload
                 </Button>
               </div>
-            </li>
-          ))}
-        </ul>
+            )}
+          </div>
+        ))}
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          Upload a photo of your ticket to verify. This feature is coming soon.
-        </p>
+        {/* Add Certification */}
+        {addingCert ? (
+          <div className="flex items-center gap-2 pt-1">
+            <Input
+              ref={newCertInputRef}
+              type="text"
+              placeholder="Certification name"
+              value={newCertName}
+              onChange={(e) => setNewCertName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddCert()}
+              className="h-9 text-sm"
+              autoFocus
+            />
+            <Button size="sm" variant="outline" onClick={handleAddCert} disabled={!newCertName.trim()}>
+              Add
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAddingCert(false); setNewCertName(''); }}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingCert(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors pt-1"
+          >
+            <Plus className="size-4" />
+            Add Certification
+          </button>
+        )}
       </CardContent>
     </Card>
   );

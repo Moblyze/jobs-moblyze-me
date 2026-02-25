@@ -124,7 +124,7 @@ export function StepCerts({
                       {(isFromProfile || isUploaded) && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
                           <CheckCircle2 className="size-3" />
-                          {isFromProfile ? 'Verified' : 'Photo Uploaded'}
+                          {isFromProfile ? 'Verified' : 'Uploaded'}
                         </span>
                       )}
                     </div>

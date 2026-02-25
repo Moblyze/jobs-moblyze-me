@@ -166,6 +166,10 @@ interface StepLocationProps {
   onNext: () => void;
   /** Demo mode */
   demo?: boolean;
+  /** Whether location data is being saved to the backend */
+  saving?: boolean;
+  /** Error message from a failed save */
+  saveError?: string | null;
 }
 
 /**
@@ -186,6 +190,8 @@ export function StepLocation({
   onWorkLocationsChange,
   onNext,
   demo,
+  saving,
+  saveError,
 }: StepLocationProps) {
   /* ---- Home location state ---- */
   const [query, setQuery] = useState('');
@@ -686,14 +692,25 @@ export function StepLocation({
           <Button
             className="w-full h-11"
             onClick={onNext}
-            disabled={!canContinue}
+            disabled={!canContinue || saving}
           >
-            Continue
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Continue'
+            )}
           </Button>
           <div className="min-h-[2.5rem] mt-2 flex items-start justify-center">
-            <p className="text-center text-xs text-muted-foreground">
-              We'll send you opportunities relevant to your locations.
-            </p>
+            {saveError ? (
+              <p className="text-center text-xs text-destructive">{saveError}</p>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">
+                We'll send you opportunities relevant to your locations.
+              </p>
+            )}
           </div>
         </div>
       </div>

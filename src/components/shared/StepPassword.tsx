@@ -49,8 +49,11 @@ export function StepPassword({ onComplete, demo }: StepPasswordProps) {
 
   const handleSubmit = async (values: PasswordFormValues) => {
     setApiError('');
+    // Check both prop and URL — Zustand hydration can briefly leave the prop
+    // stale even though the URL correctly has ?demo=true.
+    const isDemo = demo || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true');
     try {
-      if (demo) {
+      if (isDemo) {
         setDemoLoading(true);
         await new Promise((r) => setTimeout(r, 600));
         setDemoLoading(false);

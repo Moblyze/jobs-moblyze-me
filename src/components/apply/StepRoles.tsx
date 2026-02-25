@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, CheckCircle2, Search, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TAXONOMY_CATEGORIES } from '@/lib/role-taxonomy';
+import { TAXONOMY_CATEGORIES, TAXONOMY_ROLES, buildRawRoleLookup, expandCleanToRawIds } from '@/lib/role-taxonomy';
 import type { TaxonomyRole } from '@/lib/role-taxonomy';
 
 const rolesSchema = z.object({
@@ -55,22 +55,25 @@ interface CurrentUserResult {
   };
 }
 
-/** Normalize PaginatedRole to TaxonomyRole shape */
-function toTaxonomyRole(r: PaginatedRole): TaxonomyRole {
-  return { id: r.id, name: r.name, category: r.category?.trim() || 'Other' };
-}
-
-/** Group roles by category, sorted by category name */
-function groupByCategory(roles: TaxonomyRole[]): { name: string; roles: TaxonomyRole[] }[] {
-  const map = new Map<string, TaxonomyRole[]>();
-  for (const role of roles) {
-    const list = map.get(role.category) ?? [];
-    list.push(role);
-    map.set(role.category, list);
+/**
+ * Reverse-map a user's existing raw role IDs to the clean taxonomy IDs.
+ * For each clean role, if ANY of its rawRoleNames match a raw role the user has,
+ * include that clean role ID.
+ */
+function reverseMapToCleanIds(
+  profileRoles: Array<{ id: string; name: string }>,
+): string[] {
+  const profileNames = new Set(profileRoles.map((r) => r.name.trim().toLowerCase()));
+  const cleanIds: string[] = [];
+  for (const cleanRole of TAXONOMY_ROLES) {
+    const hasMatch = cleanRole.rawRoleNames.some(
+      (rawName) => profileNames.has(rawName.trim().toLowerCase())
+    );
+    if (hasMatch) {
+      cleanIds.push(cleanRole.id);
+    }
   }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, catRoles]) => ({ name, roles: catRoles.sort((a, b) => a.name.localeCompare(b.name)) }));
+  return cleanIds;
 }
 
 /**
@@ -79,7 +82,7 @@ function groupByCategory(roles: TaxonomyRole[]): { name: string; roles: Taxonomy
  * UX features:
  * - "Suggested for this job" pills always visible at top
  * - Search field filters the accordion only (pills stay)
- * - Collapsible category accordion for browsing 160+ roles
+ * - Collapsible category accordion for browsing 93 clean roles
  * - Compact checkbox list items within categories
  * - Sticky bottom CTA — always visible without scrolling
  * - Returning users see adapted copy encouraging additional roles
@@ -92,8 +95,8 @@ export function StepRoles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // Fetch all available roles (requires auth — JWT is set from StepAuth)
-  const { data: rolesData, loading: rolesLoading } = useQuery<PaginatedRolesResult>(
+  // Fetch raw API roles in background (for expanding clean → raw IDs on save)
+  const { data: rolesData } = useQuery<PaginatedRolesResult>(
     CANDIDATE_ROLES_QUERY,
     { variables: { limit: 500 }, skip: demo }
   );
@@ -116,12 +119,14 @@ export function StepRoles() {
   // User's display name — from wizard (entered at phone step) or API profile
   const displayName = wizardName || currentUserData?.currentUser?.firstName || null;
 
-  // Build the role list: demo taxonomy or API data
-  const categories = useMemo(() => {
-    if (demo) return TAXONOMY_CATEGORIES;
+  // Always show clean taxonomy roles (93 curated roles, not 500+ raw API roles)
+  const categories = TAXONOMY_CATEGORIES;
+
+  // Build lookup for expanding clean selections → raw API role IDs
+  const rawRoleLookup = useMemo(() => {
     const apiRoles = rolesData?.paginatedCandidateRoles?.roles ?? [];
-    return groupByCategory(apiRoles.map(toTaxonomyRole));
-  }, [demo, rolesData]);
+    return buildRawRoleLookup(apiRoles);
+  }, [rolesData]);
 
   // All roles flattened (for search + lookups)
   const allRoles = useMemo(() => categories.flatMap((c) => c.roles), [categories]);
@@ -138,14 +143,17 @@ export function StepRoles() {
       .filter((cat) => cat.roles.length > 0);
   }, [categories, searchQuery]);
 
-  // Determine pre-selected role IDs: wizard state OR existing profile roles
-  const profileRoleIds: string[] = existingProfileRoles.map((r) => r.id);
+  // Reverse-map existing profile raw roles to clean taxonomy IDs for pre-selection
+  const profileRoleIds: string[] = useMemo(
+    () => reverseMapToCleanIds(existingProfileRoles),
+    [existingProfileRoles]
+  );
 
   // In demo returning mode, pre-select a few roles to simulate existing profile
   const demoReturningRoleIds = useMemo(() => {
     if (!demo || !demoReturning) return [];
     return allRoles
-      .filter((r) => ['Electrician', 'Pipefitter'].includes(r.name))
+      .filter((r) => ['Electricians & Electrical Repairers', 'Pipefitter'].includes(r.name))
       .map((r) => r.id);
   }, [demo, demoReturning, allRoles]);
 
@@ -215,15 +223,18 @@ export function StepRoles() {
           await new Promise((r) => setTimeout(r, 500));
           setDemoLoading(false);
           setRoles(values.selectedRoleIds);
-          setStep('resume');
+          setStep('location');
           return;
         }
 
-        await updateRolePreferences({
-          variables: { candidateRoleIds: values.selectedRoleIds },
-        });
+        const rawIds = expandCleanToRawIds(values.selectedRoleIds, rawRoleLookup);
+        if (rawIds.length > 0) {
+          await updateRolePreferences({
+            variables: { candidateRoleIds: rawIds },
+          });
+        }
         setRoles(values.selectedRoleIds);
-        setStep('resume');
+        setStep('location');
       } catch {
         setSubmitError('Something went wrong saving your roles. Please try again.');
       }
@@ -238,7 +249,7 @@ export function StepRoles() {
         await new Promise((r) => setTimeout(r, 500));
         setDemoLoading(false);
         setRoles(values.selectedRoleIds);
-        setStep('resume');
+        setStep('location');
         return;
       }
 
@@ -247,11 +258,14 @@ export function StepRoles() {
         variables: { moblyzeJobId: jobId },
       });
 
-      // 2. Save role preferences (best-effort — don't block on failure)
+      // 2. Expand clean → raw role IDs and save (best-effort — don't block on failure)
       try {
-        await updateRolePreferences({
-          variables: { candidateRoleIds: values.selectedRoleIds },
-        });
+        const rawIds = expandCleanToRawIds(values.selectedRoleIds, rawRoleLookup);
+        if (rawIds.length > 0) {
+          await updateRolePreferences({
+            variables: { candidateRoleIds: rawIds },
+          });
+        }
       } catch {
         // Non-fatal: application was submitted successfully
       }
@@ -265,7 +279,7 @@ export function StepRoles() {
       );
 
       if (!hasResume) {
-        setStep('resume');
+        setStep('location');
       } else {
         let confirmUrl = jobSlug
           ? `/confirm?jobId=${jobId}&slug=${jobSlug}`
@@ -289,7 +303,7 @@ export function StepRoles() {
   const suggestedRoles = useMemo(() => {
     if (demo) {
       return allRoles.filter((r) =>
-        ['Electrician', 'Industrial Electrician', 'Pipefitter', 'Welder', 'Instrument Technician'].includes(r.name)
+        ['Electricians & Electrical Repairers', 'Electrician (Oilfield)', 'Pipefitter', 'Welder', 'E&I Technician'].includes(r.name)
       );
     }
     // For production, could match on job.roles names
@@ -303,13 +317,8 @@ export function StepRoles() {
       .filter(Boolean) as string[];
   }, [watchedRoleIds, allRoles]);
 
-  if (rolesLoading && !demo) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // No loading state needed — clean taxonomy is always available immediately.
+  // Raw API roles load in background for expansion on submit.
 
   return (
     <>

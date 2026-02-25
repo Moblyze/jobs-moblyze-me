@@ -1,20 +1,23 @@
 /**
- * Curated role taxonomy for the apply wizard.
+ * Clean role taxonomy for the apply/claim wizard (93 roles, 14 categories).
  *
- * Source: Moblyze role-backfill-taxonomy Google Sheet, cleaned and
- * reorganized from the raw data (which had 73% of roles miscategorized
- * under "Subsea"). Categories are designed around Moblyze's market:
- * skilled trades, energy, and industrial sectors.
+ * Source: Moblyze "Roles Reference" Google Sheet (gid=1952473549).
+ * These are user-friendly role labels shown in the web flow.
+ * Each clean role maps to one or more raw app roles (500+) via the
+ * rawRoleNames field.
  *
- * For production, the API returns roles via CANDIDATE_ROLES_QUERY.
- * This file provides the demo dataset and can serve as a reference
- * taxonomy for future database cleanup.
+ * In demo mode, the wizard displays these directly.
+ * In production mode, the wizard also displays these (not the raw 500+
+ * API roles), then expands selections to raw role IDs before saving
+ * via expandCleanToRawIds().
  */
 
 export interface TaxonomyRole {
   id: string;
   name: string;
   category: string;
+  /** Raw app role names this clean role maps to (for frontend expansion) */
+  rawRoleNames: string[];
 }
 
 export interface TaxonomyCategory {
@@ -23,196 +26,126 @@ export interface TaxonomyCategory {
 }
 
 const ROLES: TaxonomyRole[] = [
-  // — Electrical —
-  { id: 'tx-001', name: 'Electrician', category: 'Electrical' },
-  { id: 'tx-002', name: 'Industrial Electrician', category: 'Electrical' },
-  { id: 'tx-003', name: 'Commercial Electrician', category: 'Electrical' },
-  { id: 'tx-004', name: 'Master Electrician', category: 'Electrical' },
-  { id: 'tx-005', name: 'Apprentice Electrician', category: 'Electrical' },
-  { id: 'tx-006', name: 'Instrument Technician', category: 'Electrical' },
-  { id: 'tx-007', name: 'Instrument Fitter', category: 'Electrical' },
-  { id: 'tx-008', name: 'E&I Technician', category: 'Electrical' },
-  { id: 'tx-009', name: 'Control Systems Technician', category: 'Electrical' },
-  { id: 'tx-010', name: 'PLC Technician', category: 'Electrical' },
-  { id: 'tx-011', name: 'High Voltage Electrician', category: 'Electrical' },
-  { id: 'tx-012', name: 'Cable Jointer', category: 'Electrical' },
-  { id: 'tx-013', name: 'Electrical Foreman', category: 'Electrical' },
-  { id: 'tx-014', name: 'Electrical Superintendent', category: 'Electrical' },
-  { id: 'tx-015', name: 'Lineman', category: 'Electrical' },
+  // — Drilling & Well Services (25 roles) —
+  { id: 'rov-supervisor', name: 'ROV Supervisor', category: 'Drilling & Well Services', rawRoleNames: ['ROV Shift Supervisor', 'ROV Superintendent', 'ROV Supervisor'] },
+  { id: 'rov-pilot-technician', name: 'ROV Pilot/Technician', category: 'Drilling & Well Services', rawRoleNames: ['Chief Remote Pilot', 'ROV Pilot Tech I', 'ROV Pilot Tech II', 'ROV Pilot Tech III (Trainee)', 'ROV Pilot Technician', 'ROV Senior Pilot Tech', 'ROV Tooling Tech I', 'ROV Tooling Tech II', 'Senior ROV Tooling Tech', 'Trenching Pilot Tech', 'Trenching Senior Pilot Tech'] },
+  { id: 'subsea-engineer', name: 'Subsea Engineer', category: 'Drilling & Well Services', rawRoleNames: ['Sub Engineer', 'Subsea (BOP) Engineer', 'Subsea Controls Engineer', 'Subsea Engineer', 'Subsea Project Engineer', 'Subsea Technician'] },
+  { id: 'saturation-diver', name: 'Saturation Diver', category: 'Drilling & Well Services', rawRoleNames: ['ALST - Assistant Life Support Technician', 'Air / Surface Diver', 'Air Diver', 'Dive Tender', 'Life Support Supervisor (LSS)', 'Life Support Technician', 'SAT Diver'] },
+  { id: 'diving-marine', name: 'Diving & Marine', category: 'Drilling & Well Services', rawRoleNames: ['2nd Officer', 'Able Seaman', 'Air Diving Supervisor', 'Bosun (Boatswain)', 'Chief Officer', 'Deck Crew', 'Deck Foreman', 'Deck Supervisor', 'Dive Supervisor', 'Diving Superintendent', 'Marine Advisor', 'Marine Client Representative', 'Marine Representative', 'Marine Superintendent', 'Marine Technical Advisor', 'Marine Vetting Team Lead', 'Marine Warranty Surveyor', 'Marine Warranty Surveyor (MWS)', 'Mariner', 'Master Mariner', 'Mooring Master', 'OIM', 'Offshore Installation Manager', 'Oiler / Wiper', 'Port Captain', 'Senior Marine Superintendent', 'Towmaster', 'Trainee Marine Superintendent', 'Vessel Auditor', 'Vessel Inspector', 'Vessel Superintendent'] },
+  { id: 'dp-operator', name: 'DP Operator', category: 'Drilling & Well Services', rawRoleNames: ['DP Representative', 'DPO (Dynamic Positioning Officer)', 'Junior DPO (Dynamic Positioning Officer)', 'SDPO (Senior Dynamic Positioning Officer)'] },
+  { id: 'chief-engineer-marine', name: 'Chief Engineer (Marine)', category: 'Drilling & Well Services', rawRoleNames: ['Chief Engineer'] },
+  { id: 'offshore-operations', name: 'Offshore Operations', category: 'Drilling & Well Services', rawRoleNames: ['Offshore Clerk', 'Offshore Construction Manager', 'Offshore Engineer', 'Offshore Manager', 'Offshore Technician'] },
+  { id: 'ei-technician', name: 'E&I Technician', category: 'Drilling & Well Services', rawRoleNames: ['C&I (Control & Instrumentation) Designer', 'C&I (Control & Instrumentation) Engineer', 'E & I Project Manager', 'Electrical Dive Technician', 'Electro-Technical Officer (ETO)', 'I&C (Instrumentation & Control) Engineer', 'Instrument Engineer', 'Instrument Technician I', 'Instrument Technician III', 'Superintendent - E & I', 'Work Pack Engineer (E&I)'] },
+  { id: 'drilling-operations', name: 'Drilling Operations', category: 'Drilling & Well Services', rawRoleNames: ['Brakeman', 'Derrickhand', 'Derrickman', 'Drilling Fluids Specialist', 'Drilling Superintendent', 'Drilling Supervisor', 'Floorhand', 'Motorman', 'Rig Mover', 'Roughneck', 'Toolpusher'] },
+  { id: 'driller-rig-crew', name: 'Driller & Rig Crew', category: 'Drilling & Well Services', rawRoleNames: ['Driller', 'Roustabout'] },
+  { id: 'assistant-driller', name: 'Assistant Driller', category: 'Drilling & Well Services', rawRoleNames: ['Assistant Driller'] },
+  { id: 'directional-drilling', name: 'Directional Drilling', category: 'Drilling & Well Services', rawRoleNames: ['Directional Driller'] },
+  { id: 'drilling-engineer', name: 'Drilling Engineer', category: 'Drilling & Well Services', rawRoleNames: ['Drilling/Wells Engineer'] },
+  { id: 'mud-engineer', name: 'Mud Engineer/Specialist', category: 'Drilling & Well Services', rawRoleNames: ['MUD Engineer'] },
+  { id: 'mwd-lwd', name: 'MWD/LWD Specialist', category: 'Drilling & Well Services', rawRoleNames: ['LWD Technician', 'MWD Technician'] },
+  { id: 'wireline-operator', name: 'Wireline Operator/Engineer', category: 'Drilling & Well Services', rawRoleNames: ['Engineer', 'Wireline -  Slickline Operator'] },
+  { id: 'slickline', name: 'Slickline Operator', category: 'Drilling & Well Services', rawRoleNames: [] },
+  { id: 'coiled-tubing', name: 'Coiled Tubing Operator', category: 'Drilling & Well Services', rawRoleNames: ['Coiled Tubing Operator'] },
+  { id: 'cementing-services', name: 'Cementing Services', category: 'Drilling & Well Services', rawRoleNames: ['Cementing Supervisor'] },
+  { id: 'well-testing', name: 'Well Testing', category: 'Drilling & Well Services', rawRoleNames: ['Testing Engineer', 'Well Test Operator'] },
+  { id: 'fracturing-stimulation', name: 'Fracturing & Stimulation', category: 'Drilling & Well Services', rawRoleNames: [] },
+  { id: 'completions', name: 'Completions Specialist', category: 'Drilling & Well Services', rawRoleNames: ['Completions Engineer'] },
+  { id: 'workover-intervention', name: 'Workover & Well Intervention', category: 'Drilling & Well Services', rawRoleNames: ['Fishing Tool Supervisor', 'Plug & Abandonment (P&A) Engineer'] },
+  { id: 'artificial-lift', name: 'Artificial Lift Specialist', category: 'Drilling & Well Services', rawRoleNames: [] },
 
-  // — Mechanical —
-  { id: 'tx-020', name: 'Pipefitter', category: 'Mechanical' },
-  { id: 'tx-021', name: 'Steamfitter', category: 'Mechanical' },
-  { id: 'tx-022', name: 'Welder', category: 'Mechanical' },
-  { id: 'tx-023', name: 'Combo Welder', category: 'Mechanical' },
-  { id: 'tx-024', name: 'TIG Welder', category: 'Mechanical' },
-  { id: 'tx-025', name: 'Structural Welder', category: 'Mechanical' },
-  { id: 'tx-026', name: 'Millwright', category: 'Mechanical' },
-  { id: 'tx-027', name: 'Boilermaker', category: 'Mechanical' },
-  { id: 'tx-028', name: 'Mechanic', category: 'Mechanical' },
-  { id: 'tx-029', name: 'Diesel Mechanic', category: 'Mechanical' },
-  { id: 'tx-030', name: 'Heavy Equipment Mechanic', category: 'Mechanical' },
-  { id: 'tx-031', name: 'Rotating Equipment Technician', category: 'Mechanical' },
-  { id: 'tx-032', name: 'Valve Technician', category: 'Mechanical' },
-  { id: 'tx-033', name: 'Mechanical Fitter', category: 'Mechanical' },
-  { id: 'tx-034', name: 'Plumber', category: 'Mechanical' },
-  { id: 'tx-035', name: 'HVAC Technician', category: 'Mechanical' },
-  { id: 'tx-036', name: 'Mechanical Foreman', category: 'Mechanical' },
-  { id: 'tx-037', name: 'Pipe Welder', category: 'Mechanical' },
+  // — Production & Field Operations (10 roles) —
+  { id: 'production-operator', name: 'Production Operator', category: 'Production & Field Operations', rawRoleNames: ['Oil & Gas Production Operator', 'Production Operator'] },
+  { id: 'production-engineer', name: 'Production Engineer', category: 'Production & Field Operations', rawRoleNames: ['Production Engineer'] },
+  { id: 'process-operator', name: 'Process Operator', category: 'Production & Field Operations', rawRoleNames: ['Process Engineer', 'Process Operator', 'Process Supervisor'] },
+  { id: 'plant-operator', name: 'Plant Operator', category: 'Production & Field Operations', rawRoleNames: ['Fluids Plant Operator'] },
+  { id: 'control-room-operator', name: 'Control Room Operator', category: 'Production & Field Operations', rawRoleNames: ['Control Room Operator', 'Solids Control Operator'] },
+  { id: 'reactor-operator', name: 'Reactor Operator', category: 'Production & Field Operations', rawRoleNames: [] },
+  { id: 'field-engineer', name: 'Field Engineer', category: 'Production & Field Operations', rawRoleNames: ['Field Engineer', 'MPD Engineer'] },
+  { id: 'field-specialist', name: 'Field Specialist/Technician', category: 'Production & Field Operations', rawRoleNames: ['CAM Field Specialists', 'Field Inspector', 'Field Service Technician', 'Field Specialist', 'Field Technician I', 'Field Technician II', 'Field Technician III', 'Senior Field Inspector', 'Senior Field Technician', 'Superintendent - Field'] },
+  { id: 'service-operator', name: 'Service Operator', category: 'Production & Field Operations', rawRoleNames: ['Service Technician', 'Thermal Services Manager', 'Jetting Operative'] },
+  { id: 'crane-operator', name: 'Crane Operator', category: 'Production & Field Operations', rawRoleNames: ['Crane Operator'] },
 
-  // — Construction —
-  { id: 'tx-040', name: 'Carpenter', category: 'Construction' },
-  { id: 'tx-041', name: 'Ironworker', category: 'Construction' },
-  { id: 'tx-042', name: 'Scaffolder', category: 'Construction' },
-  { id: 'tx-043', name: 'Painter', category: 'Construction' },
-  { id: 'tx-044', name: 'Industrial Painter', category: 'Construction' },
-  { id: 'tx-045', name: 'Concrete Finisher', category: 'Construction' },
-  { id: 'tx-046', name: 'Mason', category: 'Construction' },
-  { id: 'tx-047', name: 'Roofer', category: 'Construction' },
-  { id: 'tx-048', name: 'Insulator', category: 'Construction' },
-  { id: 'tx-049', name: 'Glazier', category: 'Construction' },
-  { id: 'tx-050', name: 'Sheet Metal Worker', category: 'Construction' },
-  { id: 'tx-051', name: 'General Foreman', category: 'Construction' },
-  { id: 'tx-052', name: 'Site Superintendent', category: 'Construction' },
-  { id: 'tx-053', name: 'Construction Manager', category: 'Construction' },
-  { id: 'tx-054', name: 'Craftsman', category: 'Construction' },
+  // — Reservoir & Geoscience (7 roles) —
+  { id: 'reservoir-engineer', name: 'Reservoir Engineer', category: 'Reservoir & Geoscience', rawRoleNames: ['Reservoir Engineer'] },
+  { id: 'petroleum-engineer', name: 'Petroleum Engineer', category: 'Reservoir & Geoscience', rawRoleNames: ['Petroleum Engineer'] },
+  { id: 'petrophysicist', name: 'Petrophysicist', category: 'Reservoir & Geoscience', rawRoleNames: ['Petrophysicist'] },
+  { id: 'geologist', name: 'Geologist', category: 'Reservoir & Geoscience', rawRoleNames: ['Geologist', 'Wellsite Geologist'] },
+  { id: 'geophysicist', name: 'Geophysicist', category: 'Reservoir & Geoscience', rawRoleNames: ['Geophysical Surveyor', 'Geophysicist', 'Geophysicist Grade II', 'Geophysicist I', 'Senior Geophysicist'] },
+  { id: 'geoscientist', name: 'Geoscientist', category: 'Reservoir & Geoscience', rawRoleNames: ['Biologist', 'Biostratigrapher', 'Environmental Scientist', 'Geoscientist', 'Hydrologist', 'Sedimentologist'] },
+  { id: 'geoscientists', name: 'Geoscientists & Earth Scientists', category: 'Reservoir & Geoscience', rawRoleNames: ['Hydrographic Surveyor', 'Scientist', 'Seismic Interpreter'] },
 
-  // — General Labor & Helper —
-  { id: 'tx-060', name: 'Laborer', category: 'General Labor' },
-  { id: 'tx-061', name: 'Helper', category: 'General Labor' },
-  { id: 'tx-062', name: 'Pipefitter Helper', category: 'General Labor' },
-  { id: 'tx-063', name: 'Electrician Helper', category: 'General Labor' },
-  { id: 'tx-064', name: 'Welder Helper', category: 'General Labor' },
-  { id: 'tx-065', name: 'Leadman', category: 'General Labor' },
-  { id: 'tx-066', name: 'Utility Worker', category: 'General Labor' },
-  { id: 'tx-067', name: 'Equipment Operator', category: 'General Labor' },
+  // — Engineering (3 roles) —
+  { id: 'engineering-electrical', name: 'Electrical & Electronics Engineers', category: 'Engineering', rawRoleNames: ['Cable Inspector', 'Cable Mate', 'Cable Tech', 'Cable Technician', 'Electrical AP / SAP (Appointed Person / Senior Appointed Person)', 'Electrical Apprentice I', 'Electrical Apprentice II', 'Electrical Apprentice III', 'Electrical Assembler', 'Electrical Designer', 'Electrical Engineer', 'Electrical Foreman', 'Electrical Inspector', 'Electrical Technician', 'Electricians Mate', 'Electronic Tech', 'Electronics Technician', 'HV Jointer', 'Pipe Lay Electrical Tech'] },
+  { id: 'engineering-mechanical', name: 'Mechanical Engineers', category: 'Engineering', rawRoleNames: ['Mechanic', 'Mechanical Analyst', 'Mechanical Assembler', 'Mechanical Completion Surveyor', 'Mechanical Engineer', 'Mechanical Fitter', 'Mechanical Fitter w/Ropes Access', 'Mechanical Inspector', 'Mechanical Specialist', 'Mechanical Technician', 'Wind Technician - Mechanical'] },
+  { id: 'engineering-specialized', name: 'Specialized Engineers', category: 'Engineering', rawRoleNames: ['AI Engineer', 'Asset Integrity Engineer', 'Chemical Engineer', 'Civil Engineer', 'Computer Engineer', 'Cost Engineer', 'Design Engineer', 'Environmental Engineer', 'Geotechnical Engineer', 'Inspection Engineer', 'Integrity Engineer', 'Piping Designer', 'Piping Engineer', 'Piping Inspector', 'Project Engineer', 'Software Engineer', 'Structural Engineer', 'Telecoms Engineer'] },
 
-  // — Heavy Equipment & Transportation —
-  { id: 'tx-070', name: 'Crane Operator', category: 'Heavy Equipment' },
-  { id: 'tx-071', name: 'Rigger', category: 'Heavy Equipment' },
-  { id: 'tx-072', name: 'Forklift Operator', category: 'Heavy Equipment' },
-  { id: 'tx-073', name: 'Heavy Equipment Operator', category: 'Heavy Equipment' },
-  { id: 'tx-074', name: 'CDL Driver', category: 'Heavy Equipment' },
-  { id: 'tx-075', name: 'Truck Driver', category: 'Heavy Equipment' },
-  { id: 'tx-076', name: 'Excavator Operator', category: 'Heavy Equipment' },
-  { id: 'tx-077', name: 'Dozer Operator', category: 'Heavy Equipment' },
-  { id: 'tx-078', name: 'Signal Person', category: 'Heavy Equipment' },
+  // — Engineering Technicians (1 role) —
+  { id: 'engineering-technicians', name: 'Engineering Technicians', category: 'Engineering Technicians', rawRoleNames: ['CAM Engineering Technologist', 'Commissioning Manager', 'Flowline Pre-Comm Technician', 'Pre-Commissioning Supervisor', 'Pre-Commissioning Tech'] },
 
-  // — Operations & Process —
-  { id: 'tx-080', name: 'Plant Operator', category: 'Operations' },
-  { id: 'tx-081', name: 'Process Operator', category: 'Operations' },
-  { id: 'tx-082', name: 'Control Room Operator', category: 'Operations' },
-  { id: 'tx-083', name: 'Field Operator', category: 'Operations' },
-  { id: 'tx-084', name: 'Production Operator', category: 'Operations' },
-  { id: 'tx-085', name: 'Refinery Operator', category: 'Operations' },
-  { id: 'tx-086', name: 'Gas Plant Operator', category: 'Operations' },
-  { id: 'tx-087', name: 'Water Treatment Operator', category: 'Operations' },
-  { id: 'tx-088', name: 'Power Plant Operator', category: 'Operations' },
-  { id: 'tx-089', name: 'Operations Supervisor', category: 'Operations' },
+  // — Technical Trades (19 roles) —
+  { id: 'welder', name: 'Welder', category: 'Technical Trades', rawRoleNames: ['Rigger/Welder', 'Senior Weld Inspector', 'Weld Inspector', 'Welder'] },
+  { id: 'pipefitter', name: 'Pipefitter', category: 'Technical Trades', rawRoleNames: ['Bolt Up Fitter', 'Fitter', 'Pipefitter'] },
+  { id: 'rigger', name: 'Rigger', category: 'Technical Trades', rawRoleNames: ['Banksman Slinger', 'Lead Rigger', 'Rigger', 'Rigger Level III'] },
+  { id: 'scaffolder', name: 'Scaffolder', category: 'Technical Trades', rawRoleNames: ['Scaffold Builder 1', 'Scaffold Builder 3'] },
+  { id: 'rig-mechanic', name: 'Rig Mechanic', category: 'Technical Trades', rawRoleNames: [] },
+  { id: 'millwright', name: 'Millwright/Industrial Mechanic', category: 'Technical Trades', rawRoleNames: ['Millwright', 'Millwright Apprentice'] },
+  { id: 'mechanic-technician', name: 'Mechanic/Technician (General)', category: 'Technical Trades', rawRoleNames: ['CNC Machining', 'CNC Programmer/Operator', 'Craftsman', 'Fabricator', 'Ironworker', 'Machinist', 'Metal Man'] },
+  { id: 'electrical-trades', name: 'Electricians & Electrical Repairers', category: 'Technical Trades', rawRoleNames: ['Electrician', 'Electrician w/Ropes Access'] },
+  { id: 'electrician-oilfield', name: 'Electrician (Oilfield)', category: 'Technical Trades', rawRoleNames: ['Electrician II', 'Electrician III', 'Lead Electrician'] },
+  { id: 'instrumentation-tech', name: 'Instrumentation Technician', category: 'Technical Trades', rawRoleNames: [] },
+  { id: 'hydraulic-specialist', name: 'Hydraulic Specialist', category: 'Technical Trades', rawRoleNames: ['Hydraulic Technician'] },
+  { id: 'rope-access-technician', name: 'Rope Access Technician', category: 'Technical Trades', rawRoleNames: ['Rope Access Plater', 'Rope Access Supervisor', 'Rope Access Technician', 'Rope Access Wind Technician'] },
+  { id: 'maintenance-mechanics', name: 'Maintenance & Mechanics', category: 'Technical Trades', rawRoleNames: ['Maintenance Associate', 'Maintenance Engineer', 'Maintenance Technician'] },
+  { id: 'construction-trades', name: 'Construction Trades', category: 'Technical Trades', rawRoleNames: ['Carpenter', 'Construction Coordinator', 'Construction Engineer', 'Fireproofer 1', 'Helper', 'Insulator 1', 'Insulator 3', 'Labourer', 'Labourer II', 'Labourer III', 'Painter', 'Painter/Blaster 1', 'Timekeeper', 'Tool Room Attendent', 'Assistant Superintendent'] },
+  { id: 'equipment-operators', name: 'Equipment Operators', category: 'Technical Trades', rawRoleNames: ['Equipment Operator', 'Heavy Equipment Operator', 'Machine Operative', 'Equipment Engineer', 'Equipment Specialist'] },
+  { id: 'ndt-inspector', name: 'NDT Inspector', category: 'Technical Trades', rawRoleNames: ['NACE', 'NDT Inspector', 'NDT Inspector w/Ropes Access', 'NDT Technician', 'Plant Inspector', 'Radiographer', '3.4U Inspection Coordinator'] },
+  { id: 'pipeline-inspector', name: 'Pipeline Inspector', category: 'Technical Trades', rawRoleNames: ['Pipeline & Umbilical Manager', 'Pipeline Engineer', 'Pipeline Operator', 'Pipeline Specialist', 'Pipeline Supervisor'] },
+  { id: 'coating-inspector', name: 'Coating Inspector', category: 'Technical Trades', rawRoleNames: ['Coating Surveyor'] },
+  { id: 'structural-inspector', name: 'Structural Inspector', category: 'Technical Trades', rawRoleNames: ['Structural Designer', 'Structural Surveyor'] },
 
-  // — Drilling & Well Services —
-  { id: 'tx-090', name: 'Driller', category: 'Drilling & Wells' },
-  { id: 'tx-091', name: 'Derrickhand', category: 'Drilling & Wells' },
-  { id: 'tx-092', name: 'Floorhand', category: 'Drilling & Wells' },
-  { id: 'tx-093', name: 'Mud Engineer', category: 'Drilling & Wells' },
-  { id: 'tx-094', name: 'Mudlogger', category: 'Drilling & Wells' },
-  { id: 'tx-095', name: 'Well Test Operator', category: 'Drilling & Wells' },
-  { id: 'tx-096', name: 'Completions Technician', category: 'Drilling & Wells' },
-  { id: 'tx-097', name: 'Coiled Tubing Operator', category: 'Drilling & Wells' },
-  { id: 'tx-098', name: 'Wireline Operator', category: 'Drilling & Wells' },
-  { id: 'tx-099', name: 'Tool Pusher', category: 'Drilling & Wells' },
-  { id: 'tx-100', name: 'Rig Manager', category: 'Drilling & Wells' },
+  // — Plant & Process Operations (2 roles) —
+  { id: 'plant-operators', name: 'Plant & Process Operators', category: 'Plant & Process Operations', rawRoleNames: ['Bolting Operator', 'Bolting Supervisor', 'Bolting Technician', 'Leak Test Operator', 'Leak Test Supervisor', 'N2 Pump Operator', 'N2 Pump Supervisor', 'Nitrogen Operator', 'Nitrogen Supervisor'] },
+  { id: 'production-workers', name: 'Production & Process Workers', category: 'Plant & Process Operations', rawRoleNames: ['Production Chemist', 'Production Supervisor', 'Production Technician', 'Production Technologist'] },
 
-  // — Subsea & Marine —
-  { id: 'tx-110', name: 'ROV Pilot Technician', category: 'Subsea & Marine' },
-  { id: 'tx-111', name: 'ROV Supervisor', category: 'Subsea & Marine' },
-  { id: 'tx-112', name: 'Commercial Diver', category: 'Subsea & Marine' },
-  { id: 'tx-113', name: 'Saturation Diver', category: 'Subsea & Marine' },
-  { id: 'tx-114', name: 'Subsea Engineer', category: 'Subsea & Marine' },
-  { id: 'tx-115', name: 'Marine Mechanic', category: 'Subsea & Marine' },
-  { id: 'tx-116', name: 'Marine Engineer', category: 'Subsea & Marine' },
-  { id: 'tx-117', name: 'Deckhand', category: 'Subsea & Marine' },
-  { id: 'tx-118', name: 'Captain / Master', category: 'Subsea & Marine' },
+  // — Management (3 roles) —
+  { id: 'engineering-management', name: 'Engineering & Technical Management', category: 'Management', rawRoleNames: ['Asset Management Specialist', 'Asset Manager', 'Project Controls Manager', 'Project Controls Specialist I', 'Project Manager', 'Senior Project Manager'] },
+  { id: 'operations-management', name: 'Operations & General Management', category: 'Management', rawRoleNames: ['Area Manager', 'Director', 'Foreman', 'General Foreman', 'General Manager', 'Operations Accountant', 'Operations Coordinator', 'Operations Director', 'Operations Manager', 'Personnel Manager', 'Regional Manager', 'Senior Operations Coordinator', 'Site Manager'] },
+  { id: 'supply-chain-management', name: 'Supply Chain & Logistics Management', category: 'Management', rawRoleNames: ['Buyer', 'Buyer/Planner', 'Category Manager', 'Contracts Advisor', 'Contracts Manager', 'Logistics Admin Coordinator', 'Procurement Assistant', 'Procurement Coordinator', 'Procurement Specialist', 'Purchaser', 'Shipper/Receiver', 'Shipping & Receiving Coordinator', 'Storekeeper', 'Storeman', 'Supply Chain Administrator'] },
 
-  // — Inspection & QC —
-  { id: 'tx-120', name: 'NDT Technician', category: 'Inspection & QC' },
-  { id: 'tx-121', name: 'Welding Inspector', category: 'Inspection & QC' },
-  { id: 'tx-122', name: 'QC Inspector', category: 'Inspection & QC' },
-  { id: 'tx-123', name: 'Coating Inspector', category: 'Inspection & QC' },
-  { id: 'tx-124', name: 'Piping Inspector', category: 'Inspection & QC' },
-  { id: 'tx-125', name: 'Structural Inspector', category: 'Inspection & QC' },
-  { id: 'tx-126', name: 'API Inspector', category: 'Inspection & QC' },
-  { id: 'tx-127', name: 'Radiographer', category: 'Inspection & QC' },
-  { id: 'tx-128', name: 'QA/QC Manager', category: 'Inspection & QC' },
+  // — Support Functions (7 roles) —
+  { id: 'business-analysts', name: 'Business & Financial Analysts', category: 'Support Functions', rawRoleNames: ['AP Clerk', 'Account Co-ordinator', 'Account Officer', 'Accountant', 'Accounts Receivable Specialist', 'Assistant Accountant', 'Billing Manager', 'Chief Accountant', 'Corporate Controller', 'Credit Analyst', 'Credit Manager', 'Finance Director', 'Finance Manager', 'Financial Accountant', 'Financial Analyst', 'Financial Controller', 'Lead Cost Analyst', 'Management Accountant', 'Payroll Manager', 'Project Accountant', 'Project Analyst', 'Project Costs Analyst', 'Purchase Ledger Clerk', 'Senior Financial Analyst', 'Systems Accountant', 'Treasurer', 'Economist'] },
+  { id: 'supply-chain-specialists', name: 'Supply Chain & Logistics Specialists', category: 'Support Functions', rawRoleNames: ['Fleet Administrator', 'Material Handler', 'Warehouse Operator', 'Warehouse Technician', 'Warehouse Worker'] },
+  { id: 'hr-admin', name: 'HR & Administrative', category: 'Support Functions', rawRoleNames: ['Administrative Assistant', 'Administrative Clerk', 'Administrative Intern', 'Administrative Professional', 'Administrative Specialist', 'Administrative Supervisor', 'Benefits Manager', 'Document Controller', 'HR Generalist', 'HR Manager', 'HR Recruiter', 'Senior Document Controller', 'VP of Human Resources'] },
+  { id: 'compliance-safety', name: 'Compliance, Safety & Quality', category: 'Support Functions', rawRoleNames: ['CSWIP Inspector', 'Environmental Advisor', 'Environmental Specialist', 'QAQC Analyst', 'QAQC Coordinator', 'QAQC Manager', 'QC Inspector', 'Safety Engineer', 'Safety Representative', 'Safety Supervisor', 'Senior Environmental Permitting Specialist', 'Senior Safety Engineer'] },
+  { id: 'lab-technician', name: 'Laboratory Technician', category: 'Support Functions', rawRoleNames: ['Laboratory Technician', 'Operations Technician', 'Senior Lab Technician'] },
+  { id: 'materials-specialist', name: 'Materials Specialist', category: 'Support Functions', rawRoleNames: ['Materials Coordinator', 'Materials Engineer'] },
+  { id: 'hse-specialist', name: 'HSE Specialist', category: 'Support Functions', rawRoleNames: ['HSE Advisor', 'HSE Coordinator', 'HSE Inspector', 'HSE Manager', 'Principal Consultant - HSE', 'QHSE Manager'] },
 
-  // — HSE & Safety —
-  { id: 'tx-130', name: 'Safety Officer', category: 'HSE & Safety' },
-  { id: 'tx-131', name: 'HSE Manager', category: 'HSE & Safety' },
-  { id: 'tx-132', name: 'HSE Coordinator', category: 'HSE & Safety' },
-  { id: 'tx-133', name: 'Safety Technician', category: 'HSE & Safety' },
-  { id: 'tx-134', name: 'Industrial Hygienist', category: 'HSE & Safety' },
-  { id: 'tx-135', name: 'Fire Watch', category: 'HSE & Safety' },
-  { id: 'tx-136', name: 'Hole Watch', category: 'HSE & Safety' },
-  { id: 'tx-137', name: 'Environmental Specialist', category: 'HSE & Safety' },
+  // — Digital & IT (7 roles) —
+  { id: 'scada-engineer', name: 'SCADA Engineer', category: 'Digital & IT', rawRoleNames: [] },
+  { id: 'automation-engineer', name: 'Automation Engineer', category: 'Digital & IT', rawRoleNames: ['Automation Engineer', 'Operations Engineer'] },
+  { id: 'plc-technician', name: 'PLC Technician', category: 'Digital & IT', rawRoleNames: [] },
+  { id: 'data-analyst-energy', name: 'Data Analyst (Energy)', category: 'Digital & IT', rawRoleNames: ['Data Processor Grade I', 'Data Processor Grade II', 'Energy Analyst', 'Senior Data Processor', 'Survey Data Manager'] },
+  { id: 'software-developers', name: 'Software Development', category: 'Digital & IT', rawRoleNames: ['Developer - Database', 'Developer - Software', 'Developer - Web', 'Graphic Designer', 'Software Analyst'] },
+  { id: 'it-infrastructure', name: 'IT Infrastructure & Support', category: 'Digital & IT', rawRoleNames: ['IT Analyst', 'IT Manager', 'IT Trainer', 'Network Administrator', 'Network Analyst', 'Network Manager', 'Network Specialist', 'PC Specialist', 'Systems Analyst'] },
+  { id: 'data-specialists', name: 'Data & Analytics', category: 'Digital & IT', rawRoleNames: [] },
 
-  // — Maintenance —
-  { id: 'tx-140', name: 'Maintenance Technician', category: 'Maintenance' },
-  { id: 'tx-141', name: 'Maintenance Planner', category: 'Maintenance' },
-  { id: 'tx-142', name: 'Maintenance Supervisor', category: 'Maintenance' },
-  { id: 'tx-143', name: 'Turnaround Planner', category: 'Maintenance' },
-  { id: 'tx-144', name: 'Reliability Engineer', category: 'Maintenance' },
-  { id: 'tx-145', name: 'Preventive Maintenance Tech', category: 'Maintenance' },
+  // — Sales & Marketing (2 roles) —
+  { id: 'sales-engineers', name: 'Technical Sales', category: 'Sales & Marketing', rawRoleNames: ['Account Manager', 'Business Development Director', 'Business Development Manager', 'Business Development Representative', 'Commercial Negotiator', 'Estimating Manager', 'Estimator', 'Sales Engineer', 'Technical Sales Representative'] },
+  { id: 'marketing-specialists', name: 'Marketing & Communications', category: 'Sales & Marketing', rawRoleNames: ['Marketing Assistant'] },
 
-  // — Engineering —
-  { id: 'tx-150', name: 'Mechanical Engineer', category: 'Engineering' },
-  { id: 'tx-151', name: 'Electrical Engineer', category: 'Engineering' },
-  { id: 'tx-152', name: 'Civil Engineer', category: 'Engineering' },
-  { id: 'tx-153', name: 'Structural Engineer', category: 'Engineering' },
-  { id: 'tx-154', name: 'Process Engineer', category: 'Engineering' },
-  { id: 'tx-155', name: 'Pipeline Engineer', category: 'Engineering' },
-  { id: 'tx-156', name: 'Petroleum Engineer', category: 'Engineering' },
-  { id: 'tx-157', name: 'Project Engineer', category: 'Engineering' },
-  { id: 'tx-158', name: 'Design Engineer', category: 'Engineering' },
-  { id: 'tx-159', name: 'Commissioning Engineer', category: 'Engineering' },
-  { id: 'tx-160', name: 'Instrumentation Engineer', category: 'Engineering' },
+  // — Renewable & Energy Transition (5 roles) —
+  { id: 'wind-turbine-technician', name: 'Wind Turbine Technician', category: 'Renewable & Energy Transition', rawRoleNames: ['Offshore Wind Project Engineer', 'Offshore Wind Supervisor', 'Offshore Wind Technician', 'Wind Site Supervisor', 'Wind Technician - Electrical', 'Wind Turbine Commissioning Technician', 'Wind Turbine Supervisor'] },
+  { id: 'blade-technician', name: 'Blade Technician', category: 'Renewable & Energy Transition', rawRoleNames: ['Blade Repair Technician', 'Blade Team Supervisor', 'Blade Technician'] },
+  { id: 'ccs-engineer', name: 'CCS Engineer', category: 'Renewable & Energy Transition', rawRoleNames: ['QA/QC Engineer'] },
+  { id: 'hydrogen-engineer', name: 'Hydrogen Engineer', category: 'Renewable & Energy Transition', rawRoleNames: ['Hydrogen Manager'] },
+  { id: 'hydrogen-technician', name: 'Hydrogen Technician', category: 'Renewable & Energy Transition', rawRoleNames: [] },
 
-  // — Project Management —
-  { id: 'tx-170', name: 'Project Manager', category: 'Project Management' },
-  { id: 'tx-171', name: 'Construction Manager', category: 'Project Management' },
-  { id: 'tx-172', name: 'Project Coordinator', category: 'Project Management' },
-  { id: 'tx-173', name: 'Scheduler', category: 'Project Management' },
-  { id: 'tx-174', name: 'Cost Engineer', category: 'Project Management' },
-  { id: 'tx-175', name: 'Commissioning Manager', category: 'Project Management' },
-  { id: 'tx-176', name: 'Turnaround Manager', category: 'Project Management' },
+  // — Transportation & Logistics (1 role) —
+  { id: 'transportation', name: 'Transportation & Logistics', category: 'Transportation & Logistics', rawRoleNames: ['Driver', 'Fork Lift Driver', 'HGV Driver', 'Lineman Forman', 'Lineman II'] },
 
-  // — Wind & Renewables —
-  { id: 'tx-180', name: 'Wind Turbine Technician', category: 'Renewables' },
-  { id: 'tx-181', name: 'Solar Installer', category: 'Renewables' },
-  { id: 'tx-182', name: 'Solar Technician', category: 'Renewables' },
-  { id: 'tx-183', name: 'Battery Storage Technician', category: 'Renewables' },
-  { id: 'tx-184', name: 'Wind Site Supervisor', category: 'Renewables' },
-
-  // — Transmission & Distribution —
-  { id: 'tx-190', name: 'Transmission Lineman', category: 'Transmission & Power' },
-  { id: 'tx-191', name: 'Substation Technician', category: 'Transmission & Power' },
-  { id: 'tx-192', name: 'Cable Splicer', category: 'Transmission & Power' },
-  { id: 'tx-193', name: 'Relay Technician', category: 'Transmission & Power' },
-  { id: 'tx-194', name: 'Power Line Technician', category: 'Transmission & Power' },
-
-  // — Warehouse & Logistics —
-  { id: 'tx-200', name: 'Warehouse Worker', category: 'Logistics' },
-  { id: 'tx-201', name: 'Material Handler', category: 'Logistics' },
-  { id: 'tx-202', name: 'Logistics Coordinator', category: 'Logistics' },
-  { id: 'tx-203', name: 'Inventory Specialist', category: 'Logistics' },
-  { id: 'tx-204', name: 'Procurement Specialist', category: 'Logistics' },
-
-  // — Admin & Business Support —
-  { id: 'tx-210', name: 'Administrative Assistant', category: 'Admin & Support' },
-  { id: 'tx-211', name: 'Document Controller', category: 'Admin & Support' },
-  { id: 'tx-212', name: 'HR Coordinator', category: 'Admin & Support' },
-  { id: 'tx-213', name: 'Recruiter', category: 'Admin & Support' },
-  { id: 'tx-214', name: 'Estimator', category: 'Admin & Support' },
-  { id: 'tx-215', name: 'Accountant', category: 'Admin & Support' },
+  // — Other Roles (1 role) —
+  { id: 'other', name: 'Other Roles', category: 'Other Roles', rawRoleNames: ['2nd Cook', 'Assembly Manager', 'Authorised Person (AP)', 'Chef', 'Chemical Cleaner', 'Client Representative', 'Consultant', 'Cook', 'Designer', 'Dimensional Control Surveyor', 'Dive Technician', 'Drafter', 'Fibre Optic Technician', 'Flange Manager', 'Gardener', 'HMF Technician', 'Housekeeper', 'Kitchen Porter', 'LBL Technician', 'Leadman', 'Legal Advisor', 'Legal Secretary', 'Lifting Inspector', 'Lifting Supervisor', 'Major Components Manager', 'Manufacturing Technician', 'Offshore Job Template', 'Online Surveyor', 'Para Legal', 'Party Chief', 'Pipefreeze Supervisor', 'Pipefreeze Technician', 'Planner', 'Portfolio Manager', 'Practitioner', 'Quayside Technician', 'Register Nurse', 'Reporting Surveyor', 'Reports Coordinator', 'SAT Supervisor', 'SAT Technician', 'Scheduler', 'Security', 'Senior Designer', 'Senior Drafter', 'Senior Manager', 'Senior Planner', 'Senior Survey Engineer', 'Senior Surveyor', 'Shift Supervisor', 'Shop Lead', 'Shop Manager', 'Shop Technician', 'Sourcing Specialist', 'Specialist Access and Inspection Technician', 'Survey Engineer', 'Survey Engineer Grade I', 'Survey Engineer Grade II', 'Survey Grade I', 'Survey Representative', 'Survey Technician', 'Surveyor', 'Surveyor Grade II', 'Trenching Equipment Superintendent', 'Trenching Supervisor', 'UAV Accountable Manager', 'UAV Pilot Technician', 'Umbilical Operator', 'Umbilical Supervisor', 'Vendor Inspector', 'Waiter / Waitress'] },
 ];
 
 /** Build grouped categories from the flat role list */
@@ -224,25 +157,21 @@ function buildCategories(roles: TaxonomyRole[]): TaxonomyCategory[] {
     map.set(role.category, list);
   }
 
-  // Sort categories: trades first, then support roles
   const CATEGORY_ORDER = [
-    'Electrical',
-    'Mechanical',
-    'Construction',
-    'General Labor',
-    'Heavy Equipment',
-    'Operations',
-    'Drilling & Wells',
-    'Subsea & Marine',
-    'Inspection & QC',
-    'HSE & Safety',
-    'Maintenance',
+    'Drilling & Well Services',
+    'Production & Field Operations',
+    'Reservoir & Geoscience',
+    'Technical Trades',
     'Engineering',
-    'Project Management',
-    'Renewables',
-    'Transmission & Power',
-    'Logistics',
-    'Admin & Support',
+    'Engineering Technicians',
+    'Plant & Process Operations',
+    'Management',
+    'Support Functions',
+    'Digital & IT',
+    'Sales & Marketing',
+    'Renewable & Energy Transition',
+    'Transportation & Logistics',
+    'Other Roles',
   ];
 
   return CATEGORY_ORDER
@@ -255,6 +184,46 @@ function buildCategories(roles: TaxonomyRole[]): TaxonomyCategory[] {
 
 export const TAXONOMY_ROLES = ROLES;
 export const TAXONOMY_CATEGORIES = buildCategories(ROLES);
-
-/** Total role count for display */
 export const TAXONOMY_ROLE_COUNT = ROLES.length;
+
+/**
+ * Build a lookup: raw role name (lowercased) → raw role ID.
+ * Used to expand clean role selections to raw API role IDs.
+ */
+export function buildRawRoleLookup(
+  apiRoles: Array<{ id: string; name: string }>
+): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const role of apiRoles) {
+    lookup.set(role.name.trim().toLowerCase(), role.id);
+  }
+  return lookup;
+}
+
+/**
+ * Expand selected clean role IDs to the corresponding raw API role IDs.
+ *
+ * For each selected clean role, finds all its rawRoleNames in the API
+ * lookup (case-insensitive match) and returns the union of raw role IDs.
+ * If a clean role has no rawRoleNames mapping, it is skipped (no match).
+ */
+export function expandCleanToRawIds(
+  selectedCleanIds: string[],
+  rawLookup: Map<string, string>,
+): string[] {
+  const rawIds = new Set<string>();
+
+  for (const cleanId of selectedCleanIds) {
+    const cleanRole = ROLES.find((r) => r.id === cleanId);
+    if (!cleanRole) continue;
+
+    for (const rawName of cleanRole.rawRoleNames) {
+      const rawId = rawLookup.get(rawName.trim().toLowerCase());
+      if (rawId) {
+        rawIds.add(rawId);
+      }
+    }
+  }
+
+  return Array.from(rawIds);
+}

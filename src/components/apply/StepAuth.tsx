@@ -8,7 +8,6 @@ import { AsYouType, parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-
 import type { CountryCode } from 'libphonenumber-js';
 import { useMutation } from '@apollo/client/react';
 import { VERIFY_SMS_START, VERIFY_SMS_CHECK } from '@/lib/graphql/mutations';
-import { storeToken } from '@/lib/auth';
 import { useApplyWizard } from '@/hooks/useApplyWizard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,8 +113,17 @@ export function StepAuth() {
   const handlePhoneChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
-      const formatted = formatNational(raw, country);
-      phoneForm.setValue('phone', formatted, { shouldValidate: false });
+      const newDigits = raw.replace(/\D/g, '');
+      const currentDigits = phoneForm.getValues('phone').replace(/\D/g, '');
+
+      // When deleting, use raw digits to avoid the formatter re-adding
+      // parentheses/dashes that make backspace appear stuck
+      if (newDigits.length < currentDigits.length) {
+        phoneForm.setValue('phone', newDigits, { shouldValidate: false });
+      } else {
+        const formatted = formatNational(raw, country);
+        phoneForm.setValue('phone', formatted, { shouldValidate: false });
+      }
     },
     [country, phoneForm]
   );
@@ -194,8 +202,7 @@ export function StepAuth() {
         return;
       }
 
-      // Store token and advance wizard
-      storeToken(token);
+      // Store token and advance wizard (setToken also persists to localStorage)
       setToken(token);
       setPhone(phoneE164);
       setName(phoneForm.getValues('name'));

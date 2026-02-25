@@ -39,7 +39,7 @@ const MAX_FILE_SIZE_MB = 10;
  * - On successful upload, records resumeUrl in wizard state and advances
  */
 export function StepCV({ onComplete }: StepCVProps) {
-  const { setResumeFileId } = useApplyWizard();
+  const { setResumeFileId, demo } = useApplyWizard();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -56,7 +56,14 @@ export function StepCV({ onComplete }: StepCVProps) {
 
     if (!file) return;
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+    // Check MIME type, but also fall back to extension check for cases where
+    // the browser doesn't set a MIME type (common with PDFs on some mobile browsers)
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const validExtensions = ['pdf', 'doc', 'docx'];
+    const hasValidType = ACCEPTED_TYPES.includes(file.type);
+    const hasValidExtension = extension ? validExtensions.includes(extension) : false;
+
+    if (!hasValidType && !hasValidExtension) {
       setValidationError('Please upload a PDF or Word document (.pdf, .doc, .docx).');
       return;
     }
@@ -83,6 +90,15 @@ export function StepCV({ onComplete }: StepCVProps) {
 
     setUploadError('');
 
+    // In demo mode, simulate a successful upload without calling the API
+    // (the mutation requires auth which isn't available in demo)
+    const isDemo = demo || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true');
+    if (isDemo) {
+      setResumeFileId(`demo-resume-${selectedFile.name}`);
+      onComplete();
+      return;
+    }
+
     try {
       const result = await uploadResume({
         variables: { resumeFile: selectedFile },
@@ -106,7 +122,7 @@ export function StepCV({ onComplete }: StepCVProps) {
       {/* Content area with bottom padding for sticky bar */}
       <div className="space-y-6 pb-28">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Upload your CV</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Upload your resume / CV</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             A CV helps employers learn more about your experience. If you don&#39;t
             have one ready, you can always add it later.

@@ -125,17 +125,7 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Select Roles')).toBeInTheDocument();
-      expect(screen.getByText('Step 3 of 6')).toBeInTheDocument();
-    });
-
-    it('shows progress bar on certs step', () => {
-      act(() => {
-        useClaimWizard.getState().setStep('certs');
-      });
-
-      render(<ClaimWizard />);
-      expect(screen.getByText('Certifications')).toBeInTheDocument();
-      expect(screen.getByText('Step 4 of 6')).toBeInTheDocument();
+      expect(screen.getByText('Step 2 of 5')).toBeInTheDocument();
     });
 
     it('shows progress bar on location step', () => {
@@ -145,7 +135,17 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Location')).toBeInTheDocument();
-      expect(screen.getByText('Step 5 of 6')).toBeInTheDocument();
+      expect(screen.getByText('Step 3 of 5')).toBeInTheDocument();
+    });
+
+    it('shows progress bar on certs step', () => {
+      act(() => {
+        useClaimWizard.getState().setStep('certs');
+      });
+
+      render(<ClaimWizard />);
+      expect(screen.getByText('Certifications')).toBeInTheDocument();
+      expect(screen.getByText('Step 4 of 5')).toBeInTheDocument();
     });
 
     it('shows progress bar on resume step', () => {
@@ -155,7 +155,7 @@ describe('ClaimWizard', () => {
 
       render(<ClaimWizard />);
       expect(screen.getByText('Upload CV')).toBeInTheDocument();
-      expect(screen.getByText('Step 6 of 6')).toBeInTheDocument();
+      expect(screen.getByText('Step 5 of 5')).toBeInTheDocument();
     });
 
     it('shows progress bar on phone step', () => {
@@ -164,7 +164,7 @@ describe('ClaimWizard', () => {
       });
 
       render(<ClaimWizard />);
-      expect(screen.getByText('Step 1 of 6')).toBeInTheDocument();
+      expect(screen.getByText('Step 1 of 5')).toBeInTheDocument();
     });
 
     it('shows back button on verify step', () => {
@@ -212,19 +212,7 @@ describe('ClaimWizard', () => {
       expect(screen.getByText('Back')).toBeInTheDocument();
     });
 
-    it('back button on certs goes to roles', async () => {
-      const user = userEvent.setup();
-      act(() => {
-        useClaimWizard.getState().setStep('certs');
-      });
-
-      render(<ClaimWizard />);
-      await user.click(screen.getByText('Back'));
-
-      expect(useClaimWizard.getState().step).toBe('roles');
-    });
-
-    it('back button on location goes to certs', async () => {
+    it('back button on location goes to roles', async () => {
       const user = userEvent.setup();
       act(() => {
         useClaimWizard.getState().setStep('location');
@@ -233,10 +221,22 @@ describe('ClaimWizard', () => {
       render(<ClaimWizard />);
       await user.click(screen.getByText('Back'));
 
-      expect(useClaimWizard.getState().step).toBe('certs');
+      expect(useClaimWizard.getState().step).toBe('roles');
     });
 
-    it('back button on resume goes to location', async () => {
+    it('back button on certs goes to location', async () => {
+      const user = userEvent.setup();
+      act(() => {
+        useClaimWizard.getState().setStep('certs');
+      });
+
+      render(<ClaimWizard />);
+      await user.click(screen.getByText('Back'));
+
+      expect(useClaimWizard.getState().step).toBe('location');
+    });
+
+    it('back button on resume goes to certs', async () => {
       const user = userEvent.setup();
       act(() => {
         useClaimWizard.getState().setStep('resume');
@@ -245,7 +245,7 @@ describe('ClaimWizard', () => {
       render(<ClaimWizard />);
       await user.click(screen.getByText('Back'));
 
-      expect(useClaimWizard.getState().step).toBe('location');
+      expect(useClaimWizard.getState().step).toBe('certs');
     });
 
     it('back button on verify goes to phone', async () => {

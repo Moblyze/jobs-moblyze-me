@@ -85,9 +85,9 @@ export interface AuthState {
 export type WizardStep =
   | 'phone'
   | 'verify'
-  | 'name'
   | 'password'
   | 'roles'
+  | 'location'
   | 'resume'
   | 'confirm'
   | 'success';
@@ -143,4 +143,8 @@ export interface WizardState {
   employerId: string | null;
   /** Branch attribution data from outreach link URL params */
   branchInfo: BranchInfo | null;
+  /** Home location selected during apply flow */
+  location: GeocodedLocation | null;
+  /** Work location city names the user is willing to work in */
+  workLocations: string[];
 }

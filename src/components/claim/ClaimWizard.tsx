@@ -17,13 +17,18 @@ import { ClaimConfirmation } from './ClaimConfirmation';
 import { CANDIDATE_POOL_PREVIEW_QUERY, CURRENT_USER_QUERY, CANDIDATE_WORK_LOCATIONS_QUERY } from '@/lib/graphql/queries';
 import { UPDATE_ROLE_PREFERENCES, UPDATE_WORK_LOCATION_PREFERENCES, UPLOAD_CERTIFICATION, UPDATE_CANDIDATE_PROFILE_DETAILS } from '@/lib/graphql/mutations';
 import type { CertUpload } from './StepCerts';
+import { useStepSync } from '@/hooks/useStepSync';
 import type { ClaimStep } from '@/types';
+
+const CLAIM_SYNC_STEPS: readonly ClaimStep[] = [
+  'phone', 'verify', 'password', 'roles', 'certs', 'location', 'resume', 'confirmation',
+] as const;
 
 const STEP_LABELS: Record<ClaimStep, string> = {
   landing: 'Welcome',
-  phone: 'Verify Phone',
-  verify: 'Verify Code',
-  password: 'Create Password',
+  phone: "Let's get started",
+  verify: "Let's get started",
+  password: "Let's get started",
   roles: 'Select Roles',
   certs: 'Certifications',
   location: 'Location',
@@ -34,13 +39,13 @@ const STEP_LABELS: Record<ClaimStep, string> = {
 function getProgressValue(step: ClaimStep): number {
   switch (step) {
     case 'landing': return 0;
-    case 'phone': return 8;
-    case 'verify': return 15;
-    case 'password': return 25;
-    case 'roles': return 38;
-    case 'certs': return 52;
-    case 'location': return 66;
-    case 'resume': return 80;
+    case 'phone':
+    case 'verify':
+    case 'password': return 20;
+    case 'roles': return 40;
+    case 'location': return 60;
+    case 'certs': return 80;
+    case 'resume':
     case 'confirmation': return 100;
   }
 }
@@ -50,13 +55,13 @@ function getStepNumber(step: ClaimStep): number {
     case 'landing':
     case 'phone':
     case 'verify':
+    case 'password':
       return 1;
-    case 'password': return 2;
-    case 'roles': return 3;
+    case 'roles': return 2;
+    case 'location': return 3;
     case 'certs': return 4;
-    case 'location': return 5;
-    case 'resume': return 6;
-    case 'confirmation': return 6;
+    case 'resume': return 5;
+    case 'confirmation': return 5;
   }
 }
 
@@ -67,7 +72,7 @@ interface ClaimWizardProps {
 }
 
 /**
- * Profile claim wizard — 6-step flow for candidates from Courier outreach.
+ * Profile claim wizard — 5-step flow for candidates from Courier outreach.
  *
  * Reuses StepAuth and StepCV from apply flow. StepAuth writes to useApplyWizard;
  * this component bridges the auth result into useClaimWizard.
@@ -76,8 +81,21 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
   const claimWizard = useClaimWizard();
   const applyWizard = useApplyWizard();
 
-  const totalSteps = 6;
+  const totalSteps = 5;
   const [locationSaving, setLocationSaving] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [certError, setCertError] = useState<string | null>(null);
+
+  // Clear stale errors when navigating back to a step
+  const currentStep = claimWizard.step;
+  useEffect(() => {
+    if (currentStep === 'location') setLocationError(null);
+    if (currentStep === 'certs') setCertError(null);
+  }, [currentStep]);
+
+  // Sync step to path-based URL segments (/start/roles, /start/certs, etc.)
+  // Uses basePath mode so the URL becomes /start/roles instead of /start?step=roles.
+  useStepSync(claimWizard.step, claimWizard.setStep, CLAIM_SYNC_STEPS, '/start');
 
   // Mutations for saving data
   const [updateWorkLocationPrefs] = useMutation(UPDATE_WORK_LOCATION_PREFERENCES);
@@ -185,26 +203,8 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
     };
   }, [currentUserData]);
 
-  const currentStep = claimWizard.step;
   const progressValue = getProgressValue(currentStep);
   const stepNumber = getStepNumber(currentStep);
-
-  // Sync step to URL for shareable/bookmarkable steps
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (currentStep !== 'landing') {
-        params.set('step', currentStep);
-      } else {
-        params.delete('step');
-      }
-      const newUrl = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', newUrl);
-    } catch {
-      // jsdom or SSR — skip URL sync
-    }
-  }, [currentStep]);
 
   const canGoBack = currentStep === 'verify' || currentStep === 'certs' || currentStep === 'location' || currentStep === 'resume' || currentStep === 'roles';
 
@@ -231,26 +231,26 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       case 'roles':
         claimWizard.setStep('password');
         break;
-      case 'certs':
+      case 'location':
         claimWizard.setStep('roles');
         applyWizard.setStep('roles');
         break;
-      case 'location':
-        claimWizard.setStep('certs');
+      case 'certs':
+        claimWizard.setStep('location');
         break;
       case 'resume':
-        claimWizard.setStep('location');
+        claimWizard.setStep('certs');
         break;
     }
   };
 
   const handleSkip = () => {
     switch (currentStep) {
-      case 'certs':
-        handleCertsNext([]);
-        break;
       case 'location':
         handleLocationNext();
+        break;
+      case 'certs':
+        handleCertsNext([]);
         break;
       case 'resume':
         handleCVComplete();
@@ -264,16 +264,19 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
     applyWizard.setStep('roles');
   };
 
-  // StepRoles completion handler — skip applyToJob, save roles, advance to certs
+  // StepRoles completion handler — skip applyToJob, save roles, advance to location
   const handleRolesComplete = () => {
-    claimWizard.setStep('certs');
+    claimWizard.setStep('location');
   };
 
   // Save certs to backend (for certs with uploaded files), then advance
   const handleCertsNext = useCallback(async (uploads: CertUpload[]) => {
+    setCertError(null);
+    const isDemo = claimWizard.demo || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true');
+
     // Upload certs that have files attached (backend requires file: Upload!)
-    if (!claimWizard.demo && uploads.length > 0) {
-      await Promise.allSettled(
+    if (!isDemo && uploads.length > 0) {
+      const results = await Promise.allSettled(
         uploads.map((cert) =>
           uploadCertification({
             variables: {
@@ -284,14 +287,27 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
           })
         )
       );
-      // Errors are silently ignored — don't block the user
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        console.error('Failed to upload some certifications:', failures);
+        const count = failures.length;
+        setCertError(
+          count === uploads.length
+            ? 'Failed to upload certifications. You can add them later in the app.'
+            : `${count} of ${uploads.length} certification uploads failed. You can retry in the app.`
+        );
+        // Still advance — don't block the user
+      }
     }
-    claimWizard.setStep('location');
+    claimWizard.setStep('resume');
   }, [claimWizard, uploadCertification]);
 
   // Save home location + work locations to backend, then advance
   const handleLocationNext = useCallback(async () => {
-    if (!claimWizard.demo) {
+    setLocationError(null);
+    const isDemo = claimWizard.demo || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true');
+
+    if (!isDemo) {
       setLocationSaving(true);
       try {
         const saves: Promise<unknown>[] = [];
@@ -330,22 +346,22 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
           }
         }
 
-        await Promise.allSettled(saves);
+        const results = await Promise.allSettled(saves);
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.error('Failed to save some location data:', failures);
+          setLocationError('Some location data failed to save. You can continue — we\'ll retry later.');
+        }
       } catch (err) {
         console.error('Failed to save locations:', err);
+        setLocationError('Failed to save location data. You can continue — we\'ll retry later.');
       } finally {
         setLocationSaving(false);
       }
     }
 
-    // Check if user already has a resume
-    const hasResume = Boolean(currentUserData?.currentUser?.candidateProfile?.resumeUrl);
-    if (hasResume) {
-      claimWizard.setStep('confirmation');
-    } else {
-      claimWizard.setStep('resume');
-    }
-  }, [claimWizard, workLocationsData, updateWorkLocationPrefs, updateProfileDetails, currentUserData]);
+    claimWizard.setStep('certs');
+  }, [claimWizard, workLocationsData, updateWorkLocationPrefs, updateProfileDetails]);
 
   const handleCVComplete = () => {
     claimWizard.setStep('confirmation');
@@ -495,12 +511,19 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
       )}
 
       {currentStep === 'certs' && (
-        <StepCerts
-          selectedCertNames={claimWizard.selectedCertNames}
-          onSelectionChange={(certs) => claimWizard.setCerts(certs)}
-          onNext={handleCertsNext}
-          profileCertNames={profileCertNames}
-        />
+        <>
+          {certError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 mb-4">
+              <p className="text-sm text-destructive">{certError}</p>
+            </div>
+          )}
+          <StepCerts
+            selectedCertNames={claimWizard.selectedCertNames}
+            onSelectionChange={(certs) => claimWizard.setCerts(certs)}
+            onNext={handleCertsNext}
+            profileCertNames={profileCertNames}
+          />
+        </>
       )}
 
       {currentStep === 'location' && (
@@ -512,6 +535,8 @@ export function ClaimWizard({ candidatePoolId, firstName, returning }: ClaimWiza
           onWorkLocationsChange={(locs) => claimWizard.setWorkLocations(locs)}
           onNext={handleLocationNext}
           demo={claimWizard.demo}
+          saving={locationSaving}
+          saveError={locationError}
         />
       )}
 
@@ -539,10 +564,10 @@ function ClaimStepRoles({ onComplete }: { onComplete: () => void }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Watch for when StepRoles advances to 'resume' step (its completion signal)
+  // Watch for when StepRoles advances to 'location' step (its completion signal)
   // In claim mode, we intercept this and redirect to certs instead
   useEffect(() => {
-    if (applyWizard.step === 'resume' || applyWizard.step === 'confirm') {
+    if (applyWizard.step === 'location' || applyWizard.step === 'confirm') {
       // StepRoles completed — sync roles to claim wizard
       claimWizard.setRoles(applyWizard.selectedRoleIds);
       onComplete();

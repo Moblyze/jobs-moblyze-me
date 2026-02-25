@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { JobCard } from '@/components/job/JobCard';
 import { PUBLIC_JOBS_QUERY, CANDIDATE_ROLES_QUERY } from '@/lib/graphql/queries';
+import { useClaimWizard } from '@/hooks/useClaimWizard';
 import type { PublicJobCard } from '@/types';
 
 /** Demo jobs — best matches (role + location match). Slugs must exist in DEMO_JOBS map. */
@@ -175,15 +176,32 @@ interface ClaimConfirmationProps {
  */
 export function ClaimConfirmation({ name, selectedRoleIds, workLocations, demo }: ClaimConfirmationProps) {
   const appDeepLink = getAppDeepLink();
-  // Capture all needed data in refs BEFORE reset clears wizard state
+  const claimWizard = useClaimWizard();
+
+  // Capture all needed data in refs BEFORE reset clears wizard state.
+  // The parent passes these from claimWizard — after reset they become
+  // empty, but the refs preserve the original values for display.
   const capturedName = useRef(name);
   const capturedRoleIds = useRef(selectedRoleIds);
   const capturedWorkLocations = useRef(workLocations);
+  const capturedDemo = useRef(demo);
+  const didReset = useRef(false);
 
   useEffect(() => {
+    if (didReset.current) return;
+    didReset.current = true;
+
+    // Snapshot current values before reset
     if (name) capturedName.current = name;
     if (selectedRoleIds.length > 0) capturedRoleIds.current = selectedRoleIds;
     if (workLocations.length > 0) capturedWorkLocations.current = workLocations;
+    capturedDemo.current = demo;
+
+    // Clear wizard data so re-visiting /start begins fresh, but keep the
+    // step at 'confirmation' so the parent keeps rendering this component.
+    // The step will reset to 'landing' on the next visit via StartPageClient.
+    claimWizard.reset();
+    claimWizard.setStep('confirmation');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -209,7 +227,7 @@ export function ClaimConfirmation({ name, selectedRoleIds, workLocations, demo }
         <MatchingJobs
           selectedRoleIds={capturedRoleIds.current}
           workLocations={capturedWorkLocations.current}
-          demo={demo}
+          demo={capturedDemo.current}
         />
       )}
 

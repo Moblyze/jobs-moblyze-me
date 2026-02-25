@@ -2,7 +2,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { WizardStep, WizardState, BranchInfo } from '@/types';
+import { storeToken } from '@/lib/auth';
+import type { WizardStep, WizardState, BranchInfo, GeocodedLocation } from '@/types';
 
 interface WizardActions {
   setStep: (step: WizardStep) => void;
@@ -18,6 +19,8 @@ interface WizardActions {
   setWhiteLabel: (val: boolean) => void;
   setEmployerId: (employerId: string | null) => void;
   setBranchInfo: (info: BranchInfo) => void;
+  setLocation: (location: GeocodedLocation) => void;
+  setWorkLocations: (locations: string[]) => void;
   reset: () => void;
 }
 
@@ -36,6 +39,8 @@ const initialState: WizardState = {
   whiteLabel: false,
   employerId: null,
   branchInfo: null,
+  location: null,
+  workLocations: [],
 };
 
 /**
@@ -53,7 +58,10 @@ export const useApplyWizard = create<WizardState & WizardActions>()(
 
       setPhone: (phone) => set({ phone }),
 
-      setToken: (token) => set({ token }),
+      setToken: (token) => {
+        storeToken(token);
+        set({ token });
+      },
 
       setRoles: (selectedRoleIds) => set({ selectedRoleIds }),
 
@@ -77,6 +85,10 @@ export const useApplyWizard = create<WizardState & WizardActions>()(
       setEmployerId: (employerId) => set({ employerId }),
 
       setBranchInfo: (info) => set({ branchInfo: info }),
+
+      setLocation: (location) => set({ location }),
+
+      setWorkLocations: (workLocations) => set({ workLocations }),
 
       reset: () => set(initialState),
     }),

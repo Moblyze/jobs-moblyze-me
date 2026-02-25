@@ -205,7 +205,7 @@ export function ConfirmationContent({ jobId, slug, demo, whiteLabel, employerId 
         <div className="mx-auto max-w-2xl space-y-2">
           <p className="text-xs text-muted-foreground text-center">
             {whiteLabel
-              ? 'Stay connected with new opportunities from this employer — track your application in the app.'
+              ? 'Track your application and stay connected with new opportunities.'
               : 'Track your application, see more job matches, and be the first to hear about new jobs.'}
           </p>
           <a href={appDeepLink} target="_blank" rel="noopener noreferrer">
@@ -221,9 +221,7 @@ export function ConfirmationContent({ jobId, slug, demo, whiteLabel, employerId 
                 height={24}
                 className="rounded shrink-0 absolute left-4"
               />
-              {whiteLabel
-                ? 'Download the Moblyze App to Stay Connected'
-                : 'Download the Moblyze App'}
+              Download the Moblyze App
             </Button>
           </a>
         </div>
